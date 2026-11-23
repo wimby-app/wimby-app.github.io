@@ -152,6 +152,12 @@
     confirmOkBtn: document.getElementById('confirmOkBtn'),
     confirmCancelBtn: document.getElementById('confirmCancelBtn'),
 
+    // About Modal
+    openAboutBtn: document.getElementById('openAboutBtn'),
+    aboutModal: document.getElementById('aboutModal'),
+    closeAboutBtn: document.getElementById('closeAboutBtn'),
+    closeAboutOkBtn: document.getElementById('closeAboutOkBtn'),
+
     // Toast
     toast: document.getElementById('toast'),
     toastText: document.getElementById('toastText'),
@@ -1667,6 +1673,15 @@
     el.confirmCancelBtn.addEventListener('click', closeConfirmModal);
     el.confirmModal.addEventListener('click', (e) => {
       if (e.target === el.confirmModal) closeConfirmModal();
+    });
+
+    // About & Privacy Modal
+    const closeAbout = () => el.aboutModal.classList.add('hidden');
+    el.openAboutBtn.addEventListener('click', () => el.aboutModal.classList.remove('hidden'));
+    el.closeAboutBtn.addEventListener('click', closeAbout);
+    el.closeAboutOkBtn.addEventListener('click', closeAbout);
+    el.aboutModal.addEventListener('click', (e) => {
+      if (e.target === el.aboutModal) closeAbout();
     });
 
     // PWA Install Prompt
