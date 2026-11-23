@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="48%" stop-color="#4f46e5"/>
+      <stop offset="100%" stop-color="#312e81"/>
+    </linearGradient>
+    <radialGradient id="topGlow" cx="25%" cy="18%" r="65%">
+      <stop offset="0%" stop-color="#a5b4fc" stop-opacity="0.38"/>
+      <stop offset="100%" stop-color="#4f46e5" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="busBody" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#e0e7ff"/>
+    </linearGradient>
+    <linearGradient id="windshield" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#312e81"/>
+      <stop offset="100%" stop-color="#4338ca"/>
+    </linearGradient>
+    <linearGradient id="amberGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#ea580c"/>
+    </linearGradient>
+    <filter id="softShadow" x="-15%" y="-15%" width="130%" height="135%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#1e1b4b" flood-opacity="0.32"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="116" fill="url(#bgGrad)"/>
+  <rect width="512" height="512" rx="116" fill="url(#topGlow)"/>
+
+  <!-- Subtle radar/wait rings behind bus -->
+  <circle cx="248" cy="264" r="176" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="4"/>
+  <circle cx="248" cy="264" r="218" fill="none" stroke="#ffffff" stroke-opacity="0.05" stroke-width="3" stroke-dasharray="14 14"/>
+
+  <!-- Ground shadow -->
+  <ellipse cx="248" cy="408" rx="126" ry="18" fill="#1e1b4b" fill-opacity="0.35"/>
+
+  <!-- Bus Front Silhouette -->
+  <g filter="url(#softShadow)">
+    <!-- Side mirrors -->
+    <rect x="96" y="186" width="22" height="46" rx="10" fill="#c7d2fe"/>
+    <rect x="378" y="186" width="22" height="46" rx="10" fill="#c7d2fe"/>
+
+    <!-- Wheels -->
+    <rect x="144" y="346" width="44" height="54" rx="16" fill="#1e1b4b"/>
+    <rect x="308" y="346" width="44" height="54" rx="16" fill="#1e1b4b"/>
+
+    <!-- Main Body -->
+    <rect x="122" y="124" width="252" height="248" rx="46" fill="url(#busBody)"/>
+
+    <!-- Top Destination Display -->
+    <rect x="182" y="142" width="132" height="20" rx="10" fill="#312e81"/>
+    <rect x="200" y="148" width="96" height="8" rx="4" fill="#fbbf24"/>
+
+    <!-- Windshield -->
+    <rect x="144" y="176" width="208" height="106" rx="22" fill="url(#windshield)"/>
+    <!-- Windshield glass reflection -->
+    <path d="M168 176 L210 176 L166 282 L144 282 L144 232 Z" fill="#ffffff" fill-opacity="0.14"/>
+    <path d="M226 176 L246 176 L202 282 L182 282 Z" fill="#ffffff" fill-opacity="0.08"/>
+
+    <!-- Headlights -->
+    <circle cx="168" cy="326" r="18" fill="#fbbf24"/>
+    <circle cx="168" cy="326" r="9" fill="#fef3c7"/>
+    <circle cx="328" cy="326" r="18" fill="#fbbf24"/>
+    <circle cx="328" cy="326" r="9" fill="#fef3c7"/>
+
+    <!-- Front Grille -->
+    <rect x="208" y="316" width="80" height="8" rx="4" fill="#818cf8"/>
+    <rect x="220" y="332" width="56" height="8" rx="4" fill="#a5b4fc"/>
+  </g>
+
+  <!-- Stopwatch / Wait Timer Badge (Top-Right) -->
+  <g filter="url(#softShadow)">
+    <!-- Stopwatch top button -->
+    <rect x="364" y="58" width="36" height="16" rx="7" fill="#ffffff"/>
+    <rect x="376" y="70" width="12" height="16" fill="#ffffff"/>
+    <!-- Badge circle -->
+    <circle cx="382" cy="144" r="66" fill="url(#amberGrad)" stroke="#ffffff" stroke-width="12"/>
+    <!-- Clock hands -->
+    <polyline points="382,108 382,146 409,160" fill="none" stroke="#ffffff" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="382" cy="146" r="8" fill="#ffffff"/>
+  </g>
+</svg>

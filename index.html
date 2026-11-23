@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#4f46e5" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Wimby" />
+  <meta name="description" content="Wimby – אפליקציה חינמית ופרטית לתיעוד זמני המתנה לתחבורה ציבורית והגשת תלונות למשרד התחבורה ולמפעילים" />
+  <title>Wimby • תיעוד המתנה לאוטובוס</title>
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+  <link rel="apple-touch-icon" href="./icon-192.png" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Header -->
+    <header class="app-header">
+      <div>
+        <div class="brand-row">
+          <img src="./logo-wordmark.svg" alt="Wimby – Where Is My Bus?" height="48" style="display:block;height:48px;width:auto;" />
+        </div>
+        <span class="privacy-pill" title="כל הנתונים נשמרים מקומית במכשיר בלבד">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          100% פרטי • נשמר רק במכשיר
+        </span>
+      </div>
+
+      <div class="header-actions">
+        <button id="openSettingsBtn" type="button" class="icon-btn" aria-label="הגדרות וגיבוי" title="הגדרות קווים וגיבוי">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Saved Routes Switcher -->
+    <nav id="routesBar" class="routes-bar" aria-label="קווים שמורים"></nav>
+
+    <main class="main-stack">
+      <!-- PWA Install Banner (shown only when browser supports beforeinstallprompt) -->
+      <div id="installBanner" class="install-banner hidden">
+        <span><strong>טיפ:</strong> הצמד למסך הבית לגישה מהירה בתחנה ועבודה אופליין.</span>
+        <button id="installAppBtn" type="button" class="btn btn-primary" style="padding:7px 12px;font-size:0.76rem;flex-shrink:0;">התקן</button>
+      </div>
+
+      <!-- Main Timer Card -->
+      <section class="card">
+        <!-- IDLE VIEW -->
+        <div id="idleView" class="idle-view">
+          <div class="idle-meta">
+            <p class="idle-prompt">הגעת לתחנה? לחץ להתחלת מדידה</p>
+            <p id="liveClock" class="live-clock tabular ltr">--:--</p>
+          </div>
+
+          <button id="startWaitBtn" type="button" class="start-btn">
+            <div class="start-btn-circle">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+            </div>
+            <span class="start-btn-title">הגעתי לתחנה</span>
+            <span id="startBtnRouteHint" class="start-btn-sub">שומר שעת התחלה מדויקת אוטומטית</span>
+          </button>
+        </div>
+
+        <!-- WAITING VIEW -->
+        <div id="waitingView" class="waiting-view hidden">
+          <div class="waiting-status-bar">
+            <div class="pulse-wrap">
+              <span class="pulse-dot"></span>
+              <span>ממתין בתחנה</span>
+            </div>
+            <div>
+              התחלה: <strong id="waitStartTimeText" class="tabular ltr">--:--</strong>
+            </div>
+          </div>
+
+          <div class="timer-box">
+            <div id="liveTimer" class="live-timer tabular ltr">00:00</div>
+            <p id="timerSubtext" class="timer-sub">זמן המתנה נוכחי (דקות:שניות)</p>
+          </div>
+
+          <!-- Quick Issue Type Chips -->
+          <div>
+            <span class="field-label">סוג האירוע (אופציונלי):</span>
+            <div id="activeIssueChips" class="chip-group">
+              <button type="button" class="issue-chip" data-issue="אוטובוס לא הגיע">אוטובוס לא הגיע</button>
+              <button type="button" class="issue-chip" data-issue="איחור חריג">איחור חריג</button>
+              <button type="button" class="issue-chip" data-issue="דילג על התחנה">דילג על התחנה</button>
+              <button type="button" class="issue-chip" data-issue="עמוס ולא עצר">עמוס ולא עצר</button>
+            </div>
+          </div>
+
+          <div>
+            <input
+              id="activeNoteInput"
+              type="text"
+              class="field-input"
+              placeholder="הערה קצרה (למשל: נעלם מהאפליקציה, מס' רישוי...)"
+            />
+          </div>
+
+          <div class="btn-stack">
+            <button id="busArrivedBtn" type="button" class="btn btn-emerald">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              <span>האוטובוס הגיע</span>
+            </button>
+
+            <button id="gaveUpBtn" type="button" class="btn btn-amber">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+              </svg>
+              <span>ויתרתי / נסעתי בחלופה</span>
+            </button>
+
+            <div style="text-align:center;">
+              <button id="cancelWaitBtn" type="button" class="btn-ghost">ביטול מדידה (לחצתי בטעות)</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Stats Grid -->
+      <section class="stats-grid" aria-label="סטטיסטיקות המתנה">
+        <div class="stat-card">
+          <p class="stat-label">תיעודים</p>
+          <p id="statTotal" class="stat-val tabular">0</p>
+        </div>
+        <div class="stat-card">
+          <p class="stat-label">ממוצע</p>
+          <p id="statAvg" class="stat-val indigo tabular">-</p>
+        </div>
+        <div class="stat-card">
+          <p class="stat-label">מקסימום</p>
+          <p id="statMax" class="stat-val rose tabular">-</p>
+        </div>
+        <div class="stat-card">
+          <p class="stat-label">ויתורים</p>
+          <p id="statGaveUp" class="stat-val amber tabular">0</p>
+        </div>
+      </section>
+
+      <!-- Complaint Wizard CTA -->
+      <button id="openComplaintBtn" type="button" class="complaint-cta" disabled>
+        <span class="complaint-cta-left">
+          <span class="complaint-cta-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+            </svg>
+          </span>
+          <span>
+            <span class="complaint-cta-title">הגש תלונה (מייל / gov.il / CSV)</span>
+            <span id="complaintCtaSub" class="complaint-cta-sub">מכין נוסח רשמי מוכן לשליחה מכל התיעודים</span>
+          </span>
+        </span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+      </button>
+
+      <!-- History Section -->
+      <section class="main-stack" style="gap:12px;">
+        <div class="section-header">
+          <h2 class="section-title">היסטוריית תיעודים</h2>
+          <button id="openManualBtn" type="button" class="pill-action">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            <span>תיעוד ידני</span>
+          </button>
+        </div>
+
+        <div class="action-row-2">
+          <button id="exportCsvBtn" type="button" class="btn btn-secondary" disabled>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            <span>ייצוא CSV (אקסל)</span>
+          </button>
+          <button id="copySummaryBtn" type="button" class="btn btn-secondary" disabled>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+            </svg>
+            <span>העתק סיכום מהיר</span>
+          </button>
+        </div>
+
+        <div id="logsList" class="logs-list"></div>
+
+        <div id="clearAllWrapper" class="clear-wrap hidden">
+          <button id="clearAllBtn" type="button" class="btn-ghost" style="color:var(--rose);">נקה את כל ההיסטוריה</button>
+        </div>
+
+        <div id="emptyState" class="empty-state">
+          <strong>עדיין אין תיעודים</strong>
+          <p>לחץ על "הגעתי לתחנה" כשתגיע לתחנה, או הוסף תיעוד ידני בדיעבד.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <a href="https://github.com/wimby-app/wimby-app.github.io" target="_blank" rel="noopener noreferrer" class="footer-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2Z"/>
+        </svg>
+        <span>קוד פתוח ב-GitHub</span>
+      </a>
+      <span aria-hidden="true">•</span>
+      <a href="https://open-bus-map-search.hasadna.org.il/" target="_blank" rel="noopener noreferrer" class="footer-link">אימות נתונים: OpenBus</a>
+    </footer>
+  </div>
+
+  <!-- ================= MODALS ================= -->
+
+  <!-- Settings & Routes Modal -->
+  <div id="settingsModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <h3 id="settingsTitle" class="modal-title">קווים שמורים, הגדרות וגיבוי</h3>
+        <button id="closeSettingsBtn" type="button" class="icon-btn" style="width:34px;height:34px;" aria-label="סגור">✕</button>
+      </div>
+      <p class="modal-sub">אפשר לשמור מספר קווים/תחנות (למשל הלוך וחזור) ולהחליף ביניהם בלחיצה.</p>
+
+      <div id="savedRoutesList" class="saved-routes-list"></div>
+
+      <form id="routeForm" class="form-stack">
+        <input id="editingRouteId" type="hidden" />
+        <div class="grid-2">
+          <div>
+            <label for="routeLine" class="field-label">מספר קו *</label>
+            <input id="routeLine" type="text" required placeholder="למשל: 71" class="field-input" />
+          </div>
+          <div>
+            <label for="routeOperator" class="field-label">מפעיל *</label>
+            <input id="routeOperator" type="text" list="operatorsDatalist" required placeholder="בחר או הקלד" class="field-input" />
+            <datalist id="operatorsDatalist">
+              <option value="סופרבוס"></option>
+              <option value="אגד"></option>
+              <option value="דן"></option>
+              <option value="קווים"></option>
+              <option value="אקסטרה"></option>
+              <option value="מטרופולין"></option>
+              <option value="אלקטרה אפיקים"></option>
+              <option value="תנופה"></option>
+              <option value="נתיב אקספרס"></option>
+              <option value="בית שמש אקספרס"></option>
+              <option value="כפיר (רכבת קלה)"></option>
+              <option value="רכבת ישראל"></option>
+            </datalist>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div>
+            <label for="routeStopCode" class="field-label">קוד תחנה (מק"ט)</label>
+            <input id="routeStopCode" type="text" inputmode="numeric" placeholder="למשל: 3021" class="field-input" />
+          </div>
+          <div>
+            <label for="routeLabel" class="field-label">כינוי קצר (אופציונלי)</label>
+            <input id="routeLabel" type="text" placeholder="למשל: הביתה / בוקר" class="field-input" />
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div>
+            <label for="routeStopName" class="field-label">שם תחנה / עיר</label>
+            <input id="routeStopName" type="text" placeholder="למשל: בנייני האומה, ירושלים" class="field-input" />
+          </div>
+          <div>
+            <label for="routeDirection" class="field-label">כיוון נסיעה</label>
+            <input id="routeDirection" type="text" placeholder="למשל: לרמות / לתל אביב" class="field-input" />
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px;">
+          <button id="saveRouteBtn" type="submit" class="btn btn-primary" style="flex:1;">שמור קו</button>
+          <button id="resetRouteFormBtn" type="button" class="btn btn-subtle hidden">נקה טופס</button>
+        </div>
+      </form>
+
+      <details class="details-box">
+        <summary>גיבוי ושחזור נתונים (JSON) • שמירה על המידע</summary>
+        <div class="details-body">
+          <div class="alert-box alert-emerald">
+            הנתונים נשמרים אך ורק בדפדפן שבמכשיר שלך. ב-iPhone מומלץ להוסיף את האפליקציה למסך הבית (שתף → הוסף למסך הבית) ולבצע גיבוי מדי פעם.
+          </div>
+          <div class="action-row-2">
+            <button id="backupJsonBtn" type="button" class="btn btn-secondary">הורד גיבוי (JSON)</button>
+            <button id="restoreJsonBtn" type="button" class="btn btn-secondary">שחזר מקובץ גיבוי</button>
+            <input id="restoreJsonInput" type="file" accept="application/json,.json" class="hidden" />
+          </div>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <!-- Manual / Edit Entry Modal -->
+  <div id="manualModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="manualModalTitle">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <h3 id="manualModalTitle" class="modal-title">הוספת תיעוד ידני</h3>
+        <button id="closeManualBtn" type="button" class="icon-btn" style="width:34px;height:34px;" aria-label="סגור">✕</button>
+      </div>
+
+      <form id="manualForm" class="form-stack">
+        <input id="editingLogId" type="hidden" />
+
+        <div class="grid-2">
+          <div>
+            <label for="manualDate" class="field-label">תאריך</label>
+            <input id="manualDate" type="date" required class="field-input" />
+          </div>
+          <div>
+            <label for="manualRouteSelect" class="field-label">קו ותחנה</label>
+            <select id="manualRouteSelect" class="field-select"></select>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div>
+            <label for="manualStartTime" class="field-label">הגעה לתחנה</label>
+            <input id="manualStartTime" type="time" required class="field-input" />
+          </div>
+          <div>
+            <label for="manualEndTime" class="field-label">סיום המתנה</label>
+            <input id="manualEndTime" type="time" required class="field-input" />
+          </div>
+        </div>
+
+        <p id="manualErrorMsg" class="alert-box alert-rose hidden"></p>
+
+        <div>
+          <span class="field-label">סטטוס</span>
+          <div class="radio-grid">
+            <label class="radio-card">
+              <input type="radio" name="manualStatus" value="arrived" checked />
+              <div class="radio-card-box emerald">האוטובוס הגיע</div>
+            </label>
+            <label class="radio-card">
+              <input type="radio" name="manualStatus" value="gave_up" />
+              <div class="radio-card-box amber">ויתרתי / חלופה</div>
+            </label>
+          </div>
+        </div>
+
+        <div>
+          <label for="manualIssueType" class="field-label">סוג תקלה (אופציונלי)</label>
+          <select id="manualIssueType" class="field-select">
+            <option value="">ללא סיווג</option>
+            <option value="אוטובוס לא הגיע">אוטובוס לא הגיע</option>
+            <option value="איחור חריג">איחור חריג</option>
+            <option value="דילג על התחנה">דילג על התחנה</option>
+            <option value="עמוס ולא עצר">עמוס ולא עצר</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="manualNote" class="field-label">הערה (אופציונלי)</label>
+          <input id="manualNote" type="text" placeholder="למשל: נעלם מהאפליקציה, לקחתי מונית..." class="field-input" />
+        </div>
+
+        <div style="display:flex;gap:8px;padding-top:4px;">
+          <button id="manualSubmitBtn" type="submit" class="btn btn-primary" style="flex:1;">שמור תיעוד</button>
+          <button id="cancelManualBtn" type="button" class="btn btn-subtle">ביטול</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Complaint Wizard Modal -->
+  <div id="complaintModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="complaintTitle">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <h3 id="complaintTitle" class="modal-title">אשף הגשת תלונה</h3>
+        <button id="closeComplaintBtn" type="button" class="icon-btn" style="width:34px;height:34px;" aria-label="סגור">✕</button>
+      </div>
+
+      <!-- Recipient Selector -->
+      <div>
+        <span class="field-label">למי מגישים את התלונה?</span>
+        <div class="radio-grid">
+          <label class="radio-card">
+            <input type="radio" name="complaintTarget" value="mot" checked />
+            <div class="radio-card-box indigo">משרד התחבורה</div>
+          </label>
+          <label class="radio-card">
+            <input type="radio" name="complaintTarget" value="operator" />
+            <div class="radio-card-box indigo" id="complaintOperatorLabel">החברה המפעילה</div>
+          </label>
+        </div>
+      </div>
+
+      <!-- 60-Day Warning -->
+      <div id="complaintAgeWarning" class="alert-box alert-amber hidden"></div>
+
+      <!-- Log Selection -->
+      <div>
+        <div class="section-header" style="margin-bottom:6px;">
+          <span class="field-label" style="margin:0;">תיעודים הכלולים בתלונה (<span id="selectedLogsCount">0</span>)</span>
+          <button id="toggleSelectUnreportedBtn" type="button" class="mini-btn" style="color:var(--primary);">בחר רק שטרם דווחו</button>
+        </div>
+        <div id="complaintLogsChecklist" class="check-list"></div>
+      </div>
+
+      <!-- Optional Local-Only Personal Details -->
+      <details class="details-box">
+        <summary>פרטים אישיים לתלונה (נשמר רק במכשיר, אופציונלי)</summary>
+        <div class="details-body">
+          <p class="modal-sub" style="margin:0;">משרד התחבורה מחייב שם מלא, ת"ז, טלפון וכתובת לטיפול בפנייה. הפרטים נשמרים מקומית אצלך בלבד ומשולבים אוטומטית בנוסח.</p>
+          <div class="grid-2">
+            <input id="profileFullName" type="text" placeholder="שם מלא" class="field-input" />
+            <input id="profileIdNumber" type="text" inputmode="numeric" placeholder="תעודת זהות" class="field-input" />
+          </div>
+          <div class="grid-2">
+            <input id="profilePhone" type="tel" placeholder="טלפון נייד" class="field-input" />
+            <input id="profileAddress" type="text" placeholder="כתובת מגורים" class="field-input" />
+          </div>
+        </div>
+      </details>
+
+      <!-- Editable Letter Preview -->
+      <div>
+        <label for="complaintPreview" class="field-label">נוסח התלונה (ניתן לערוך לפני שליחה):</label>
+        <textarea id="complaintPreview" class="field-textarea"></textarea>
+      </div>
+
+      <!-- Send / Submit Actions -->
+      <div class="btn-stack">
+        <button id="sendEmailBtn" type="button" class="btn btn-primary">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+          </svg>
+          <span id="sendEmailBtnText">פתח טיוטת מייל מוכנה (pniotcrm@mot.gov.il)</span>
+        </button>
+
+        <button id="shareWithCsvBtn" type="button" class="btn btn-emerald hidden">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+          </svg>
+          <span>שתף למייל עם קובץ CSV מצורף</span>
+        </button>
+
+        <button id="copyAndOpenFormBtn" type="button" class="btn btn-secondary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+          </svg>
+          <span id="copyAndOpenFormText">העתק נוסח ופתח טופס gov.il</span>
+        </button>
+
+        <div class="action-row-2">
+          <button id="downloadSelectedCsvBtn" type="button" class="btn btn-secondary">הורד CSV לצירוף</button>
+          <button id="markReportedBtn" type="button" class="btn btn-secondary" style="color:var(--emerald);border-color:var(--emerald-border);">סמן כ"דווח ✓"</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirmation Modal -->
+  <div id="confirmModal" class="modal-backdrop centered hidden" role="dialog" aria-modal="true">
+    <div class="modal-sheet compact">
+      <h3 id="confirmTitle" class="modal-title">אישור פעולה</h3>
+      <p id="confirmMessage" class="modal-sub" style="margin:0;">האם אתה בטוח?</p>
+      <div class="action-row-2" style="margin-top:6px;">
+        <button id="confirmOkBtn" type="button" class="btn btn-rose">אישור</button>
+        <button id="confirmCancelBtn" type="button" class="btn btn-subtle">ביטול</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast" role="status" aria-live="polite">
+    <div class="toast-inner">
+      <span id="toastText"></span>
+      <button id="toastUndoBtn" type="button" class="toast-undo hidden">בטל מחיקה</button>
+    </div>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
