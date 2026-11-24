@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wimby-v9';
+const CACHE_NAME = 'wimby-v11';
 const ASSETS = [
   './',
   './index.html',
@@ -8,7 +8,7 @@ const ASSETS = [
   './icon.svg',
   './icon-192.png',
   './icon-512.png',
-  './logo-wordmark.svg'
+  './logo-wordmark.svg?v=2'
 ];
 
 self.addEventListener('install', (event) => {

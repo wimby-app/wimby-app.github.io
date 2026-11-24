@@ -1302,3 +1302,69 @@ button:disabled {
   gap: 8px;
   margin-top: 4px;
 }
+
+/* OpenBus Stop & Line Lookup */
+.lookup-box {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lookup-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lookup-status {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.lookup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 185px;
+  overflow-y: auto;
+}
+
+.lookup-item {
+  width: 100%;
+  text-align: right;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 11px;
+  border-radius: 11px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 0.78rem;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.lookup-item:hover {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.lookup-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.lookup-item-sub {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

@@ -1,6 +1,14 @@
 (function () {
   'use strict';
 
+  const APP_VERSION = '2.1';
+  const WHATS_NEW_ITEMS = [
+    'איתור מהיר של תחנה וקווים לפי מספר תחנה או תחנות קרובות (📍 אופציונלי).',
+    'אימות OpenBus מדויק יותר – בודק את שעות ההגעה המתוכננות לתחנה הספציפית שלך.',
+    'מסך המתנה נקי ואינטואיטיבי יותר ללא עומס כפתורים.',
+    'תיבה ברורה יותר למילוי אוטומטי של פרטים אישיים בטיוטת המייל (נשמר רק במכשיר).',
+  ];
+
   // ---------- Constants ----------
   const STORAGE_KEYS = {
     LOGS: 'busWaitLogger_logs_v1',
@@ -11,6 +19,8 @@
     PROFILE: 'busWaitLogger_profile_v2',
     PREFS: 'busWaitLogger_prefs_v2',
     ONBOARDING_SEEN: 'busWaitLogger_onboarding_v1',
+    LAST_SEEN_VERSION: 'busWaitLogger_lastSeenVersion_v1',
+    HIDE_WHATS_NEW: 'busWaitLogger_hideWhatsNew_v1',
   };
 
   const MOT_EMAIL = 'pniotcrm@mot.gov.il';
@@ -96,7 +106,6 @@
     waitStartTimeText: document.getElementById('waitStartTimeText'),
     liveTimer: document.getElementById('liveTimer'),
     timerSubtext: document.getElementById('timerSubtext'),
-    activeIssueChips: document.getElementById('activeIssueChips'),
     activeNoteInput: document.getElementById('activeNoteInput'),
     busArrivedBtn: document.getElementById('busArrivedBtn'),
     gaveUpBtn: document.getElementById('gaveUpBtn'),
@@ -124,6 +133,13 @@
     savedRoutesList: document.getElementById('savedRoutesList'),
     routeForm: document.getElementById('routeForm'),
     editingRouteId: document.getElementById('editingRouteId'),
+    routeLineRef: document.getElementById('routeLineRef'),
+    lookupStopBtn: document.getElementById('lookupStopBtn'),
+    nearbyStopsBtn: document.getElementById('nearbyStopsBtn'),
+    stopLookupStatus: document.getElementById('stopLookupStatus'),
+    stopLinesFilter: document.getElementById('stopLinesFilter'),
+    nearbyStopsList: document.getElementById('nearbyStopsList'),
+    stopLinesList: document.getElementById('stopLinesList'),
     routeLine: document.getElementById('routeLine'),
     routeOperator: document.getElementById('routeOperator'),
     routeStopCode: document.getElementById('routeStopCode'),
@@ -164,7 +180,9 @@
     profileIdNumber: document.getElementById('profileIdNumber'),
     profilePhone: document.getElementById('profilePhone'),
     profileAddress: document.getElementById('profileAddress'),
+    clearProfileBtn: document.getElementById('clearProfileBtn'),
     complaintPreview: document.getElementById('complaintPreview'),
+    complaintMissingProfileHint: document.getElementById('complaintMissingProfileHint'),
     sendEmailBtn: document.getElementById('sendEmailBtn'),
     sendEmailBtnText: document.getElementById('sendEmailBtnText'),
     shareWithCsvBtn: document.getElementById('shareWithCsvBtn'),
@@ -195,6 +213,14 @@
     tourPrevBtn: document.getElementById('tourPrevBtn'),
     tourNextBtn: document.getElementById('tourNextBtn'),
     tourSetupRouteBtn: document.getElementById('tourSetupRouteBtn'),
+
+    // What's New Modal
+    whatsNewModal: document.getElementById('whatsNewModal'),
+    whatsNewVersionSub: document.getElementById('whatsNewVersionSub'),
+    whatsNewList: document.getElementById('whatsNewList'),
+    hideWhatsNewCheckbox: document.getElementById('hideWhatsNewCheckbox'),
+    closeWhatsNewBtn: document.getElementById('closeWhatsNewBtn'),
+    closeWhatsNewOkBtn: document.getElementById('closeWhatsNewOkBtn'),
 
     // Toast
     toast: document.getElementById('toast'),
@@ -520,13 +546,6 @@
     }
   }
 
-  function renderActiveIssueChips() {
-    const current = (activeSession && activeSession.issueType) || '';
-    el.activeIssueChips.querySelectorAll('.issue-chip').forEach((btn) => {
-      btn.classList.toggle('selected', btn.dataset.issue === current);
-    });
-  }
-
   function renderActionState() {
     if (timerInterval) {
       clearInterval(timerInterval);
@@ -540,7 +559,6 @@
       const startDate = new Date(activeSession.startIso);
       el.waitStartTimeText.textContent = formatTimeHHMMSS(startDate);
       el.activeNoteInput.value = activeSession.note || '';
-      renderActiveIssueChips();
       updateActiveTimerDisplay();
       timerInterval = setInterval(updateActiveTimerDisplay, 1000);
     } else {
@@ -638,15 +656,23 @@
         const ob = entry.openBus;
         let boxClass = 'neutral';
         let summaryText = '';
+        const scopeLabel = ob.stopLevel && entry.stopCode
+          ? `לתחנה ${entry.stopCode} (${ob.windowLabel})`
+          : `(${ob.windowLabel})`;
+
         if (ob.plannedCount === 0) {
-          summaryText = `אימות OpenBus (${ob.windowLabel}): לא נמצאו נסיעות מתוכננות בלו"ז בטווח זה (בדוק מספר קו/מפעיל).`;
+          summaryText = `אימות OpenBus ${scopeLabel}: לא נמצאו נסיעות מתוכננות בלו"ז בטווח זה.`;
         } else if (ob.missingCount > 0) {
           boxClass = 'missing';
-          const timesStr = ob.missingTimes && ob.missingTimes.length ? ` (יציאות חסרות: ${ob.missingTimes.join(', ')})` : '';
-          summaryText = `אימות OpenBus (${ob.windowLabel}): מתוך ${ob.plannedCount} נסיעות מתוכננות, ${ob.missingCount} לא תועדו ב-GPS${timesStr}.`;
+          const timesLabel = ob.stopLevel ? 'הגעות חסרות לתחנה' : 'יציאות חסרות';
+          const timesStr = ob.missingTimes && ob.missingTimes.length ? ` (${timesLabel}: ${ob.missingTimes.join(', ')})` : '';
+          summaryText = `אימות OpenBus ${scopeLabel}: מתוך ${ob.plannedCount} נסיעות מתוכננות, ${ob.missingCount} לא תועדו ב-GPS${timesStr}.`;
         } else {
           boxClass = 'ok';
-          summaryText = `אימות OpenBus (${ob.windowLabel}): כל ${ob.plannedCount} הנסיעות המתוכננות תועדו ב-GPS (ייתכן איחור או עומס).`;
+          const plannedStr = ob.stopLevel && ob.plannedTimes && ob.plannedTimes.length
+            ? ` (${ob.plannedTimes.join(', ')})`
+            : '';
+          summaryText = `אימות OpenBus ${scopeLabel}: כל ${ob.plannedCount} הנסיעות המתוכננות${plannedStr} תועדו ב-GPS (ייתכן איחור או עומס).`;
         }
         const staleHint = ob.isSameDay && ob.executedCount === 0 && ob.plannedCount > 0
           ? ' • שים לב: נתוני היום מתעדכנים לעיתים רק לאחר מספר שעות.'
@@ -753,6 +779,7 @@
       stopCode: route.stopCode || '',
       stopName: route.stopName || '',
       direction: route.direction || '',
+      lineRef: route.lineRef || null,
       reportedAt: null,
     };
 
@@ -839,9 +866,267 @@
 
   function resetRouteForm() {
     el.editingRouteId.value = '';
+    el.routeLineRef.value = '';
     el.routeForm.reset();
     el.saveRouteBtn.textContent = 'הוסף ושמור קו';
     el.resetRouteFormBtn.classList.add('hidden');
+    clearStopLookupUI();
+  }
+
+  let lastFoundStopLines = [];
+
+  function clearStopLookupUI() {
+    lastFoundStopLines = [];
+    el.stopLookupStatus.textContent = '';
+    el.stopLookupStatus.classList.add('hidden');
+    el.stopLinesFilter.value = '';
+    el.stopLinesFilter.classList.add('hidden');
+    el.nearbyStopsList.innerHTML = '';
+    el.nearbyStopsList.classList.add('hidden');
+    el.stopLinesList.innerHTML = '';
+    el.stopLinesList.classList.add('hidden');
+  }
+
+  function renderStopLinesList(filterQuery = '') {
+    const q = filterQuery.trim().toLowerCase();
+    const filtered = q
+      ? lastFoundStopLines.filter(
+          (item) =>
+            item.line.toLowerCase().includes(q) ||
+            item.operator.toLowerCase().includes(q) ||
+            item.direction.toLowerCase().includes(q)
+        )
+      : lastFoundStopLines;
+
+    if (filtered.length === 0) {
+      el.stopLinesList.innerHTML = '<div class="lookup-status" style="padding:6px 4px;">לא נמצא קו תואם ברשימה – אפשר להקליד ידנית למטה.</div>';
+      return;
+    }
+
+    el.stopLinesList.innerHTML = filtered.map((item) => `
+      <button
+        type="button"
+        class="lookup-item"
+        data-pick-line="${escapeHtml(item.line)}"
+        data-pick-operator="${escapeHtml(item.operator)}"
+        data-pick-direction="${escapeHtml(item.direction)}"
+        data-pick-lineref="${escapeHtml(String(item.lineRef || ''))}"
+      >
+        <span class="lookup-item-main">
+          <strong>קו ${escapeHtml(item.line)} • ${escapeHtml(item.operator)}</strong>
+          ${item.direction ? `<span class="lookup-item-sub">כיוון: ${escapeHtml(item.direction)}</span>` : ''}
+        </span>
+        <span class="badge badge-indigo">בחר</span>
+      </button>
+    `).join('');
+  }
+
+  function extractDirectionFromLongName(longName) {
+    if (!longName) return '';
+    const parts = String(longName).split('<->');
+    const rawDest = (parts.length > 1 ? parts[parts.length - 1] : parts[0]).trim();
+    return rawDest.replace(/-\d+[א-תa-zA-Z]*$/, '').trim();
+  }
+
+  function getRecentWeekdayDateStr() {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    while (d.getDay() === 5 || d.getDay() === 6) {
+      d.setDate(d.getDate() - 1);
+    }
+    return formatDateInput(d);
+  }
+
+  function haversineMeters(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const toRad = (deg) => (deg * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(a));
+  }
+
+  async function lookupStopByCode(rawCode) {
+    const code = String(rawCode || '').trim();
+    if (!code) {
+      showToast('נא להקליד מספר תחנה (למשל 1616)');
+      return;
+    }
+
+    el.stopLookupStatus.textContent = '⏳ מאתר תחנה וקווים ב-OpenBus...';
+    el.stopLookupStatus.classList.remove('hidden');
+    el.stopLinesFilter.value = '';
+    el.stopLinesFilter.classList.add('hidden');
+    el.stopLinesList.innerHTML = '';
+    el.stopLinesList.classList.add('hidden');
+    el.lookupStopBtn.disabled = true;
+
+    try {
+      const refDate = getRecentWeekdayDateStr();
+
+      // Step 1: Resolve exact indexed gtfs_stop_id for refDate (fast, ~200ms)
+      const stopParams = new URLSearchParams({
+        limit: '1',
+        code,
+        date_from: refDate,
+        date_to: refDate,
+      });
+      const stopRes = await fetch(`${OPENBUS_API_BASE}/gtfs_stops/list?${stopParams.toString()}`);
+      if (!stopRes.ok) throw new Error('OpenBus stop lookup error');
+      const stopsData = await stopRes.json();
+
+      if (!Array.isArray(stopsData) || stopsData.length === 0) {
+        el.stopLookupStatus.textContent = `לא נמצאה תחנה מספר ${code}. בדוק את המספר או הזן ידנית למטה.`;
+        return;
+      }
+
+      const stop = stopsData[0];
+      const fullStopName = [stop.name, stop.city].filter(Boolean).join(', ');
+      el.routeStopName.value = fullStopName;
+
+      // Step 2: Query gtfs_ride_stops by indexed gtfs_stop_ids on a 3-hour afternoon peak window (fast & complete)
+      const fetchLinesInWindow = async (fromIso, toIso) => {
+        const ridesParams = new URLSearchParams({
+          limit: '500',
+          gtfs_stop_ids: String(stop.id),
+          arrival_time_from: fromIso,
+          arrival_time_to: toIso,
+        });
+        const ridesRes = await fetch(`${OPENBUS_API_BASE}/gtfs_ride_stops/list?${ridesParams.toString()}`);
+        if (!ridesRes.ok) throw new Error('OpenBus rides lookup error');
+        return ridesRes.json();
+      };
+
+      let ridesData = await fetchLinesInWindow(`${refDate}T13:00:00Z`, `${refDate}T16:30:00Z`);
+      if (!Array.isArray(ridesData) || ridesData.length === 0) {
+        // Fallback for morning/night-only stops
+        ridesData = await fetchLinesInWindow(`${refDate}T04:00:00Z`, `${refDate}T22:00:00Z`);
+      }
+
+      const lineMap = new Map();
+      (Array.isArray(ridesData) ? ridesData : []).forEach((row) => {
+        const lineNum = String(row.gtfs_route__route_short_name || '').trim();
+        const agency = String(row.gtfs_route__agency_name || '').trim();
+        const lineRef = row.gtfs_route__line_ref || '';
+        const direction = extractDirectionFromLongName(row.gtfs_route__route_long_name);
+        if (!lineNum) return;
+        const key = `${lineRef || lineNum}|${agency}|${direction}`;
+        if (!lineMap.has(key)) {
+          lineMap.set(key, { line: lineNum, operator: agency, direction, lineRef });
+        }
+      });
+
+      lastFoundStopLines = [...lineMap.values()].sort((a, b) => {
+        const na = parseInt(a.line, 10);
+        const nb = parseInt(b.line, 10);
+        if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) return na - nb;
+        return a.line.localeCompare(b.line, 'he');
+      });
+
+      if (lastFoundStopLines.length === 0) {
+        el.stopLookupStatus.textContent = `נמצאה תחנה: ${fullStopName} (לא נמצאו קווים – ניתן להזין מספר קו ידנית למטה).`;
+        return;
+      }
+
+      el.stopLookupStatus.textContent = `נמצאה תחנה: ${fullStopName} • נמצאו ${lastFoundStopLines.length} קווים (או הזן ידנית למטה):`;
+      if (lastFoundStopLines.length > 5) {
+        el.stopLinesFilter.classList.remove('hidden');
+      }
+      renderStopLinesList('');
+      el.stopLinesList.classList.remove('hidden');
+    } catch (err) {
+      console.error('Stop lookup failed:', err);
+      el.stopLookupStatus.textContent = 'לא ניתן להתחבר כרגע ל-OpenBus (בדוק חיבור אינטרנט או הזן ידנית).';
+    } finally {
+      el.lookupStopBtn.disabled = false;
+    }
+  }
+
+  async function findNearbyStops() {
+    if (!navigator.geolocation) {
+      showToast('הדפדפן אינו תומך באיתור מיקום');
+      return;
+    }
+
+    el.stopLookupStatus.textContent = '📍 מאתר מיקום ותחנות קרובות...';
+    el.stopLookupStatus.classList.remove('hidden');
+    el.nearbyStopsList.innerHTML = '';
+    el.nearbyStopsList.classList.add('hidden');
+    el.stopLinesList.classList.add('hidden');
+    el.nearbyStopsBtn.disabled = true;
+
+    try {
+      const pos = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 60000,
+        });
+      });
+
+      const { latitude: lat, longitude: lon } = pos.coords;
+
+      const geoUrl = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&accept-language=he`;
+      const geoRes = await fetch(geoUrl);
+      if (!geoRes.ok) throw new Error('Reverse geocode error');
+      const geoData = await geoRes.json();
+      const addr = geoData.address || {};
+      const city = addr.city || addr.town || addr.village || addr.municipality || '';
+      if (!city) throw new Error('City not detected');
+
+      const refDate = getRecentWeekdayDateStr();
+      const todayStr = formatDateInput(new Date());
+      const stopsParams = new URLSearchParams({
+        limit: '3000',
+        city,
+        date_from: refDate,
+        date_to: todayStr,
+      });
+      const stopsRes = await fetch(`${OPENBUS_API_BASE}/gtfs_stops/list?${stopsParams.toString()}`);
+      if (!stopsRes.ok) throw new Error('OpenBus city stops error');
+      const stopsData = await stopsRes.json();
+
+      const seen = new Map();
+      (Array.isArray(stopsData) ? stopsData : []).forEach((s) => {
+        if (!s.code || !s.lat || !s.lon || seen.has(s.code)) return;
+        const dist = haversineMeters(lat, lon, s.lat, s.lon);
+        seen.set(s.code, { ...s, dist });
+      });
+
+      const nearest = [...seen.values()].sort((a, b) => a.dist - b.dist).slice(0, 6);
+      if (nearest.length === 0) {
+        el.stopLookupStatus.textContent = `לא נמצאו תחנות קרובות ב-${city}. ניתן להקליד מספר תחנה ישירות.`;
+        return;
+      }
+
+      el.stopLookupStatus.textContent = `תחנות קרובות אליך (${city}) – לחץ על תחנה להצגת הקווים:`;
+      el.nearbyStopsList.innerHTML = nearest.map((s) => `
+        <button
+          type="button"
+          class="lookup-item"
+          data-pick-stop-code="${escapeHtml(String(s.code))}"
+          data-pick-stop-name="${escapeHtml([s.name, s.city].filter(Boolean).join(', '))}"
+        >
+          <span class="lookup-item-main">
+            <strong>${escapeHtml(s.name)}</strong>
+            <span class="lookup-item-sub">מספר תחנה ${escapeHtml(String(s.code))} • ${escapeHtml(s.city || '')}</span>
+          </span>
+          <span class="badge badge-slate tabular">${Math.round(s.dist)} מ'</span>
+        </button>
+      `).join('');
+      el.nearbyStopsList.classList.remove('hidden');
+    } catch (err) {
+      console.error('Nearby stops failed:', err);
+      if (err && err.code === 1) {
+        el.stopLookupStatus.textContent = 'הרשאת המיקום לא אושרה – אפשר פשוט להקליד מספר תחנה למעלה.';
+      } else {
+        el.stopLookupStatus.textContent = 'לא הצלחנו לאתר תחנות קרובות כרגע – אפשר להקליד מספר תחנה ישירות.';
+      }
+    } finally {
+      el.nearbyStopsBtn.disabled = false;
+    }
   }
 
   function openSettingsModal() {
@@ -865,6 +1150,7 @@
       label: el.routeLabel.value.trim(),
       stopName: el.routeStopName.value.trim(),
       direction: el.routeDirection.value.trim(),
+      lineRef: el.routeLineRef.value ? Number(el.routeLineRef.value) || null : null,
     };
 
     if (!data.line || !data.operator) return;
@@ -1074,6 +1360,7 @@
           stopCode: chosenRoute ? chosenRoute.stopCode : prev.stopCode,
           stopName: chosenRoute ? chosenRoute.stopName : prev.stopName,
           direction: chosenRoute ? chosenRoute.direction : prev.direction,
+          lineRef: chosenRoute ? (chosenRoute.lineRef || null) : (prev.lineRef || null),
         };
       }
       showToast('התיעוד עודכן בהצלחה');
@@ -1092,6 +1379,7 @@
         stopCode: chosenRoute ? chosenRoute.stopCode : '',
         stopName: chosenRoute ? chosenRoute.stopName : '',
         direction: chosenRoute ? chosenRoute.direction : '',
+        lineRef: chosenRoute ? (chosenRoute.lineRef || null) : null,
         reportedAt: null,
       });
       showToast('התיעוד הידני נוסף בהצלחה');
@@ -1202,7 +1490,7 @@
 
     const op = getPrimaryOperatorForEntries(entries);
     const lines = [...new Set(entries.map((e) => e.line).filter(Boolean))];
-    const stops = [...new Set(entries.map((e) => [e.stopCode ? `מק"ט ${e.stopCode}` : '', e.stopName].filter(Boolean).join(' – ')).filter(Boolean))];
+    const stops = [...new Set(entries.map((e) => [e.stopCode ? `מספר תחנה ${e.stopCode}` : '', e.stopName].filter(Boolean).join(' – ')).filter(Boolean))];
     const directions = [...new Set(entries.map((e) => e.direction).filter(Boolean))];
 
     const total = entries.length;
@@ -1230,8 +1518,12 @@
       let line = `• ${formatDateDDMMYYYY(s)} (${getHebrewDay(s)}): המתנה בין ${formatTimeHHMM(s)} ל-${formatTimeHHMM(e)} – סה"כ ${Math.round(entry.waitMinutes)} דקות (${statusText})${issuePart}${routeExtra}${notePart}`;
       if (entry.openBus && entry.openBus.plannedCount > 0) {
         const ob = entry.openBus;
-        const timesStr = ob.missingTimes && ob.missingTimes.length ? ` (שעות יציאה חסרות: ${ob.missingTimes.join(', ')})` : '';
-        line += `\n  ↳ אימות מול נתוני משרד התחבורה הפתוחים (OpenBus/דאטאבוס, טווח ${ob.windowLabel}): מתוך ${ob.plannedCount} נסיעות מתוכננות, ${ob.missingCount} לא תועדו כבוצעו ב-GPS${timesStr}.`;
+        const scope = ob.stopLevel && entry.stopCode
+          ? `תחנה ${entry.stopCode}, טווח ${ob.windowLabel}`
+          : `טווח ${ob.windowLabel}`;
+        const timesLabel = ob.stopLevel ? 'שעות הגעה חסרות לתחנה' : 'שעות יציאה חסרות';
+        const timesStr = ob.missingTimes && ob.missingTimes.length ? ` (${timesLabel}: ${ob.missingTimes.join(', ')})` : '';
+        line += `\n  ↳ אימות מול נתוני משרד התחבורה הפתוחים (OpenBus/דאטאבוס, ${scope}): מתוך ${ob.plannedCount} נסיעות מתוכננות, ${ob.missingCount} לא תועדו כבוצעו ב-GPS${timesStr}.`;
       }
       return line;
     });
@@ -1242,7 +1534,7 @@
       : '';
 
     const personalBlock = [
-      'פרטי הפונה (חובה לטיפול בתלונה):',
+      'פרטי הפונה:',
       `שם מלא: ${profile.fullName || '_______________'}`,
       `תעודת זהות: ${profile.idNumber || '_______________'}`,
       `טלפון נייד: ${profile.phone || '_______________'}`,
@@ -1305,6 +1597,9 @@
     }
 
     el.complaintPreview.value = buildComplaintLetter(entries, target);
+
+    const hasMissingProfile = !(profile.fullName && profile.idNumber && profile.phone && profile.address);
+    el.complaintMissingProfileHint.classList.toggle('hidden', !hasMissingProfile || entries.length === 0);
 
     const hasSelection = entries.length > 0;
     const recipientEmail = target === 'mot' ? MOT_EMAIL : (opInfo && opInfo.email) || '';
@@ -1394,27 +1689,110 @@
     try {
       const startDate = new Date(entry.startIso);
       const endDate = new Date(entry.endIso);
-      // Buses arriving at the stop usually departed the origin 5–45 minutes earlier
+      const isSameDay = formatDateInput(startDate) === formatDateInput(new Date());
+
+      const lineFilterParams = new URLSearchParams({ limit: '100' });
+      if (entry.lineRef) {
+        lineFilterParams.set('gtfs_route__line_refs', String(entry.lineRef));
+      } else {
+        lineFilterParams.set('gtfs_route__route_short_name', entry.line.trim());
+        const opInfo = OPERATOR_DIRECTORY[entry.operator];
+        if (opInfo && opInfo.operatorRefs) {
+          lineFilterParams.set('gtfs_route__operator_refs', opInfo.operatorRefs);
+        } else if (entry.operator) {
+          lineFilterParams.set('gtfs_route__agency_name', entry.operator.trim());
+        }
+      }
+
+      // Path A: Exact stop-level scheduled arrival check when stopCode is available
+      if (entry.stopCode && entry.stopCode.trim()) {
+        const stopRideParams = new URLSearchParams(lineFilterParams);
+        stopRideParams.set('gtfs_stop__code', entry.stopCode.trim());
+        stopRideParams.set('arrival_time_from', startDate.toISOString());
+        stopRideParams.set('arrival_time_to', endDate.toISOString());
+
+        const stopRes = await fetch(`${OPENBUS_API_BASE}/gtfs_ride_stops/list?${stopRideParams.toString()}`);
+        if (!stopRes.ok) throw new Error('OpenBus stop rides error');
+        let stopRides = await stopRes.json();
+        if (!Array.isArray(stopRides)) stopRides = [];
+
+        if (stopRides.length > 0) {
+          // Determine origin departure window for these exact scheduled stop arrivals
+          const originTimes = stopRides
+            .map((r) => new Date(r.gtfs_ride__start_time).getTime())
+            .filter((t) => !Number.isNaN(t));
+          const siriFrom = originTimes.length
+            ? new Date(Math.min(...originTimes) - 10 * 60 * 1000)
+            : new Date(startDate.getTime() - 45 * 60 * 1000);
+          const siriTo = originTimes.length
+            ? new Date(Math.max(...originTimes) + 10 * 60 * 1000)
+            : endDate;
+
+          const siriParams = new URLSearchParams(lineFilterParams);
+          siriParams.set('scheduled_start_time_from', siriFrom.toISOString());
+          siriParams.set('scheduled_start_time_to', siriTo.toISOString());
+
+          const siriRes = await fetch(`${OPENBUS_API_BASE}/siri_rides/list?${siriParams.toString()}`);
+          if (!siriRes.ok) throw new Error('OpenBus SIRI error');
+          let siriRides = await siriRes.json();
+          if (!Array.isArray(siriRides)) siriRides = [];
+
+          const observedGtfsIds = new Set(
+            siriRides.map((r) => r.gtfs_ride_id || r.route_gtfs_ride_id).filter(Boolean)
+          );
+          const observedKeys = new Set(
+            siriRides.map((r) => `${r.siri_route__line_ref || r.gtfs_route__line_ref}|${r.scheduled_start_time}`)
+          );
+
+          const plannedTimes = [...new Set(
+            stopRides.map((r) => formatTimeHHMM(new Date(r.arrival_time))).sort()
+          )];
+
+          const missingStopRides = stopRides.filter((r) => {
+            const key = `${r.gtfs_route__line_ref}|${r.gtfs_ride__start_time}`;
+            return !observedGtfsIds.has(r.gtfs_ride_id) && !observedKeys.has(key);
+          });
+
+          const missingTimes = [...new Set(
+            missingStopRides.map((r) => formatTimeHHMM(new Date(r.arrival_time))).sort()
+          )];
+
+          const plannedCount = stopRides.length;
+          const missingCount = missingStopRides.length;
+          const executedCount = Math.max(0, plannedCount - missingCount);
+
+          entry.openBus = {
+            checkedAt: new Date().toISOString(),
+            stopLevel: true,
+            plannedCount,
+            executedCount,
+            missingCount,
+            plannedTimes,
+            missingTimes,
+            isSameDay,
+            windowLabel: `${formatTimeHHMM(startDate)}–${formatTimeHHMM(endDate)}`,
+            databusUrl: DATABUS_WEB_URL,
+          };
+
+          saveLogs();
+          showToast(
+            missingCount > 0
+              ? `אומת לתחנה ${entry.stopCode}: ${missingCount} מתוך ${plannedCount} הגעות לא תועדו ב-GPS`
+              : `אומת לתחנה ${entry.stopCode}: כל ${plannedCount} ההגעות המתוכננות תועדו ב-GPS`
+          );
+          return;
+        }
+      }
+
+      // Path B: Fallback to origin-departure window (45 min lookback) when stopCode is missing or no stop rides found
       const windowStart = new Date(startDate.getTime() - 45 * 60 * 1000);
       const windowEnd = endDate;
 
-      const paramsBase = new URLSearchParams({
-        limit: '100',
-        gtfs_route__route_short_name: entry.line.trim(),
-      });
-
-      const opInfo = OPERATOR_DIRECTORY[entry.operator];
-      if (opInfo && opInfo.operatorRefs) {
-        paramsBase.set('gtfs_route__operator_refs', opInfo.operatorRefs);
-      } else if (entry.operator) {
-        paramsBase.set('gtfs_route__agency_name', entry.operator.trim());
-      }
-
-      const gtfsParams = new URLSearchParams(paramsBase);
+      const gtfsParams = new URLSearchParams(lineFilterParams);
       gtfsParams.set('start_time_from', windowStart.toISOString());
       gtfsParams.set('start_time_to', windowEnd.toISOString());
 
-      const siriParams = new URLSearchParams(paramsBase);
+      const siriParams = new URLSearchParams(lineFilterParams);
       siriParams.set('scheduled_start_time_from', windowStart.toISOString());
       siriParams.set('scheduled_start_time_to', windowEnd.toISOString());
 
@@ -1433,8 +1811,7 @@
       if (!Array.isArray(gtfsRides)) gtfsRides = [];
       if (!Array.isArray(siriRides)) siriRides = [];
 
-      // Narrow down by direction text if user specified it and it matches route_long_name
-      if (entry.direction && entry.direction.trim().length >= 2) {
+      if (!entry.lineRef && entry.direction && entry.direction.trim().length >= 2) {
         const dirNeedle = entry.direction.trim();
         const filteredGtfs = gtfsRides.filter((r) =>
           String(r.gtfs_route__route_long_name || '').includes(dirNeedle)
@@ -1446,7 +1823,6 @@
         }
       }
 
-      // Match observed SIRI rides to planned GTFS rides
       const observedGtfsIds = new Set(
         siriRides.map((r) => r.gtfs_ride_id || r.route_gtfs_ride_id).filter(Boolean)
       );
@@ -1470,10 +1846,10 @@
       const plannedCount = gtfsRides.length;
       const missingCount = missingRides.length;
       const executedCount = Math.max(0, plannedCount - missingCount);
-      const isSameDay = formatDateInput(startDate) === formatDateInput(new Date());
 
       entry.openBus = {
         checkedAt: new Date().toISOString(),
+        stopLevel: false,
         plannedCount,
         executedCount,
         missingCount,
@@ -1522,15 +1898,6 @@
     el.gaveUpBtn.addEventListener('click', () => finishWaiting('gave_up'));
     el.cancelWaitBtn.addEventListener('click', requestCancelWaiting);
 
-    el.activeIssueChips.addEventListener('click', (e) => {
-      const chip = e.target.closest('.issue-chip');
-      if (!chip || !activeSession) return;
-      const issue = chip.dataset.issue;
-      activeSession.issueType = activeSession.issueType === issue ? '' : issue;
-      saveActiveSession();
-      renderActiveIssueChips();
-    });
-
     el.activeNoteInput.addEventListener('input', () => {
       if (activeSession) {
         activeSession.note = el.activeNoteInput.value;
@@ -1563,12 +1930,44 @@
     });
     el.routeForm.addEventListener('submit', handleRouteSubmit);
     el.resetRouteFormBtn.addEventListener('click', resetRouteForm);
+    el.lookupStopBtn.addEventListener('click', () => lookupStopByCode(el.routeStopCode.value));
+    el.nearbyStopsBtn.addEventListener('click', findNearbyStops);
+    el.stopLinesFilter.addEventListener('input', () => renderStopLinesList(el.stopLinesFilter.value));
+
+    el.routeLine.addEventListener('input', () => {
+      el.routeLineRef.value = '';
+    });
+
+    el.nearbyStopsList.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-pick-stop-code]');
+      if (!btn) return;
+      el.routeStopCode.value = btn.dataset.pickStopCode || '';
+      el.routeStopName.value = btn.dataset.pickStopName || '';
+      el.nearbyStopsList.classList.add('hidden');
+      lookupStopByCode(el.routeStopCode.value);
+    });
+
+    el.stopLinesList.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-pick-line]');
+      if (!btn) return;
+      el.routeLine.value = btn.dataset.pickLine || '';
+      el.routeOperator.value = btn.dataset.pickOperator || '';
+      el.routeDirection.value = btn.dataset.pickDirection || '';
+      el.routeLineRef.value = btn.dataset.pickLineref || '';
+      el.stopLinesList.classList.add('hidden');
+      el.stopLinesFilter.classList.add('hidden');
+      el.stopLookupStatus.textContent = `נבחר קו ${el.routeLine.value} (${el.routeOperator.value}) – לחץ "${el.saveRouteBtn.textContent}" לסיום.`;
+      showToast(`פרטי קו ${el.routeLine.value} מולאו אוטומטית`);
+    });
+
     el.savedRoutesList.addEventListener('click', (e) => {
       const editBtn = e.target.closest('[data-edit-route]');
       if (editBtn) {
         const r = routes.find((item) => item.id === editBtn.dataset.editRoute);
         if (!r) return;
+        clearStopLookupUI();
         el.editingRouteId.value = r.id;
+        el.routeLineRef.value = r.lineRef ? String(r.lineRef) : '';
         el.routeLine.value = r.line;
         el.routeOperator.value = r.operator;
         el.routeStopCode.value = r.stopCode;
@@ -1644,6 +2043,17 @@
         saveProfile();
         updateComplaintWizardUI();
       });
+    });
+
+    el.clearProfileBtn.addEventListener('click', () => {
+      profile = { fullName: '', idNumber: '', phone: '', address: '' };
+      el.profileFullName.value = '';
+      el.profileIdNumber.value = '';
+      el.profilePhone.value = '';
+      el.profileAddress.value = '';
+      saveProfile();
+      updateComplaintWizardUI();
+      showToast('הפרטים האישיים נמחקו מהמכשיר');
     });
 
     el.sendEmailBtn.addEventListener('click', () => {
@@ -1799,6 +2209,13 @@
       openSettingsModal();
     });
 
+    // What's New Modal
+    el.closeWhatsNewBtn.addEventListener('click', closeWhatsNewModal);
+    el.closeWhatsNewOkBtn.addEventListener('click', closeWhatsNewModal);
+    el.whatsNewModal.addEventListener('click', (e) => {
+      if (e.target === el.whatsNewModal) closeWhatsNewModal();
+    });
+
     // PWA Install Prompt
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
@@ -1849,6 +2266,25 @@
     }
   }
 
+  function openWhatsNewModal() {
+    el.whatsNewVersionSub.textContent = `גרסה ${APP_VERSION} – מה השתנה מהגרסה הקודמת:`;
+    el.whatsNewList.innerHTML = WHATS_NEW_ITEMS.map((item) => `<li>${escapeHtml(item)}</li>`).join('');
+    el.hideWhatsNewCheckbox.checked = false;
+    el.whatsNewModal.classList.remove('hidden');
+  }
+
+  function closeWhatsNewModal() {
+    el.whatsNewModal.classList.add('hidden');
+    try {
+      localStorage.setItem(STORAGE_KEYS.LAST_SEEN_VERSION, APP_VERSION);
+      if (el.hideWhatsNewCheckbox.checked) {
+        localStorage.setItem(STORAGE_KEYS.HIDE_WHATS_NEW, '1');
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }
+
   function registerServiceWorker() {
     if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
       navigator.serviceWorker.register('./sw.js').catch((err) => {
@@ -1870,8 +2306,16 @@
 
     try {
       const seenTour = localStorage.getItem(STORAGE_KEYS.ONBOARDING_SEEN);
+      const lastSeenVer = localStorage.getItem(STORAGE_KEYS.LAST_SEEN_VERSION);
+      const hideWhatsNew = localStorage.getItem(STORAGE_KEYS.HIDE_WHATS_NEW) === '1';
+
       if (!seenTour && logs.length === 0 && !activeSession) {
+        // Brand new user: show welcome tour and mark current version as seen
+        localStorage.setItem(STORAGE_KEYS.LAST_SEEN_VERSION, APP_VERSION);
         openTourModal(0);
+      } else if (!activeSession && !hideWhatsNew && lastSeenVer !== APP_VERSION) {
+        // Returning user on a new release: show What's New once
+        openWhatsNewModal();
       }
     } catch {
       // ignore

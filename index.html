@@ -20,7 +20,7 @@
     <header class="app-header">
       <div>
         <div class="brand-row">
-          <img src="./logo-wordmark.svg" alt="Wimby – Where Is My Bus?" height="48" style="display:block;height:48px;width:auto;" />
+          <img src="./logo-wordmark.svg?v=2" alt="Wimby – Where Is My Bus?!" height="48" style="display:block;height:48px;width:auto;" />
         </div>
         <span class="privacy-pill" title="כל הנתונים נשמרים מקומית במכשיר בלבד">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
@@ -87,23 +87,12 @@
             <p id="timerSubtext" class="timer-sub">זמן המתנה נוכחי (דקות:שניות)</p>
           </div>
 
-          <!-- Quick Issue Type Chips -->
-          <div>
-            <span class="field-label">סוג האירוע (אופציונלי):</span>
-            <div id="activeIssueChips" class="chip-group">
-              <button type="button" class="issue-chip" data-issue="אוטובוס לא הגיע">אוטובוס לא הגיע</button>
-              <button type="button" class="issue-chip" data-issue="איחור חריג">איחור חריג</button>
-              <button type="button" class="issue-chip" data-issue="דילג על התחנה">דילג על התחנה</button>
-              <button type="button" class="issue-chip" data-issue="עמוס ולא עצר">עמוס ולא עצר</button>
-            </div>
-          </div>
-
           <div>
             <input
               id="activeNoteInput"
               type="text"
               class="field-input"
-              placeholder="הערה קצרה (למשל: נעלם מהאפליקציה, מס' רישוי...)"
+              placeholder="הערה אופציונלית (למשל: דילג על התחנה, עמוס, נעלם...)"
             />
           </div>
 
@@ -248,6 +237,24 @@
 
       <form id="routeForm" class="form-stack">
         <input id="editingRouteId" type="hidden" />
+        <input id="routeLineRef" type="hidden" />
+
+        <!-- Smart Stop & Line Lookup via OpenBus -->
+        <div class="lookup-box">
+          <div>
+            <label for="routeStopCode" class="field-label" style="margin-bottom:4px;">איתור מהיר לפי מספר תחנה</label>
+            <div class="lookup-row">
+              <input id="routeStopCode" type="text" inputmode="numeric" placeholder="מספר תחנה (למשל 4226)" class="field-input" style="flex:1;background:#fff;" />
+              <button id="lookupStopBtn" type="button" class="btn btn-primary" style="padding:10px 12px;font-size:0.78rem;flex-shrink:0;">🔍 אתר קווים</button>
+              <button id="nearbyStopsBtn" type="button" class="btn btn-secondary" style="padding:10px 10px;font-size:0.78rem;flex-shrink:0;" title="איתור תחנות קרובות לפי מיקום (אופציונלי)">📍 קרובות</button>
+            </div>
+          </div>
+          <div id="stopLookupStatus" class="lookup-status hidden"></div>
+          <input id="stopLinesFilter" type="text" inputmode="text" placeholder="סנן לפי מספר קו או מפעיל..." class="field-input hidden" style="padding:7px 10px;font-size:0.78rem;background:#fff;" />
+          <div id="nearbyStopsList" class="lookup-list hidden"></div>
+          <div id="stopLinesList" class="lookup-list hidden"></div>
+        </div>
+
         <div class="grid-2">
           <div>
             <label for="routeLine" class="field-label">מספר קו *</label>
@@ -275,24 +282,18 @@
 
         <div class="grid-2">
           <div>
-            <label for="routeStopCode" class="field-label">קוד תחנה (מק"ט)</label>
-            <input id="routeStopCode" type="text" inputmode="numeric" placeholder="למשל: 3021" class="field-input" />
-          </div>
-          <div>
-            <label for="routeLabel" class="field-label">כינוי קצר (אופציונלי)</label>
-            <input id="routeLabel" type="text" placeholder="למשל: הביתה / בוקר" class="field-input" />
-          </div>
-        </div>
-
-        <div class="grid-2">
-          <div>
-            <label for="routeStopName" class="field-label">שם תחנה / עיר</label>
+            <label for="routeStopName" class="field-label">תחנת מוצא / עיר</label>
             <input id="routeStopName" type="text" placeholder="למשל: בנייני האומה, ירושלים" class="field-input" />
           </div>
           <div>
             <label for="routeDirection" class="field-label">כיוון נסיעה</label>
             <input id="routeDirection" type="text" placeholder="למשל: לרמות / לתל אביב" class="field-input" />
           </div>
+        </div>
+
+        <div>
+          <label for="routeLabel" class="field-label">כינוי קצר (אופציונלי)</label>
+          <input id="routeLabel" type="text" placeholder="למשל: הביתה / בוקר / עבודה" class="field-input" />
         </div>
 
         <div style="display:flex;gap:8px;">
@@ -426,17 +427,22 @@
       </div>
 
       <!-- Optional Local-Only Personal Details -->
-      <details class="details-box">
-        <summary>פרטים אישיים לתלונה (נשמר רק במכשיר, אופציונלי)</summary>
+      <details id="personalDetailsBox" class="details-box" style="background:var(--emerald-soft);border-color:var(--emerald-border);">
+        <summary style="color:#065f46;">🔒 מלא פרטים אישיים אוטומטית בטיוטה (אופציונלי)</summary>
         <div class="details-body">
-          <p class="modal-sub" style="margin:0;">משרד התחבורה מחייב שם מלא, ת"ז, טלפון וכתובת לטיפול בפנייה. הפרטים נשמרים מקומית אצלך בלבד ומשולבים אוטומטית בנוסח.</p>
-          <div class="grid-2">
-            <input id="profileFullName" type="text" placeholder="שם מלא" class="field-input" />
-            <input id="profileIdNumber" type="text" inputmode="numeric" placeholder="תעודת זהות" class="field-input" />
+          <div class="alert-box alert-emerald" style="background:#fff;margin:0;">
+            <strong>פרטיות מלאה:</strong> הפרטים שלך <strong>אינם נשלחים אלינו</strong> ואינם יוצאים לשום שרת – הם נשמרים רק בדפדפן שבמכשיר שלך ומשמשים אך ורק למילוי אוטומטי של טיוטת התלונה (משרד התחבורה מחייב אותם לטיפול בפנייה).
           </div>
           <div class="grid-2">
-            <input id="profilePhone" type="tel" placeholder="טלפון נייד" class="field-input" />
-            <input id="profileAddress" type="text" placeholder="כתובת מגורים" class="field-input" />
+            <input id="profileFullName" type="text" placeholder="שם מלא" class="field-input" style="background:#fff;" />
+            <input id="profileIdNumber" type="text" inputmode="numeric" placeholder="תעודת זהות" class="field-input" style="background:#fff;" />
+          </div>
+          <div class="grid-2">
+            <input id="profilePhone" type="tel" placeholder="טלפון נייד" class="field-input" style="background:#fff;" />
+            <input id="profileAddress" type="text" placeholder="כתובת מגורים" class="field-input" style="background:#fff;" />
+          </div>
+          <div style="text-align:left;">
+            <button id="clearProfileBtn" type="button" class="mini-btn danger">נקה פרטים מהמכשיר</button>
           </div>
         </div>
       </details>
@@ -445,6 +451,11 @@
       <div>
         <label for="complaintPreview" class="field-label">נוסח התלונה (ניתן לערוך לפני שליחה):</label>
         <textarea id="complaintPreview" class="field-textarea"></textarea>
+      </div>
+
+      <!-- Reminder if personal details are empty (does not force saving) -->
+      <div id="complaintMissingProfileHint" class="alert-box alert-amber hidden">
+        ⚠️ <strong>תזכורת לפני שליחה:</strong> משרד התחבורה מחייב שם מלא, ת"ז, טלפון וכתובת לטיפול בפנייה. ניתן למלא אותם למעלה בתיבה הירוקה, או להשלים ישירות בתוך המייל לפני השליחה.
       </div>
 
       <!-- Send / Submit Actions -->
@@ -501,6 +512,23 @@
     </div>
   </div>
 
+  <!-- What's New Modal -->
+  <div id="whatsNewModal" class="modal-backdrop centered hidden" role="dialog" aria-modal="true" aria-labelledby="whatsNewTitle">
+    <div class="modal-sheet" style="max-width:400px;border-radius:26px;">
+      <div class="modal-header">
+        <h3 id="whatsNewTitle" class="modal-title">✨ מה חדש ב-Wimby?</h3>
+        <button id="closeWhatsNewBtn" type="button" class="icon-btn" style="width:34px;height:34px;" aria-label="סגור">✕</button>
+      </div>
+      <p id="whatsNewVersionSub" class="modal-sub"></p>
+      <ul id="whatsNewList" style="margin:0;padding:0 18px 0 0;font-size:0.84rem;color:var(--text-secondary);line-height:1.6;display:flex;flex-direction:column;gap:6px;"></ul>
+      <label style="display:flex;align-items:center;gap:8px;font-size:0.76rem;color:var(--text-muted);cursor:pointer;margin-top:2px;">
+        <input id="hideWhatsNewCheckbox" type="checkbox" style="width:15px;height:15px;accent-color:var(--primary);" />
+        <span>אל תציג הודעות "מה חדש" בעדכונים הבאים</span>
+      </label>
+      <button id="closeWhatsNewOkBtn" type="button" class="btn btn-primary" style="width:100%;">מגניב, הבנתי!</button>
+    </div>
+  </div>
+
   <!-- About & Privacy Modal -->
   <div id="aboutModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="aboutTitle">
     <div class="modal-sheet">
@@ -516,7 +544,7 @@
             Wimby היא אפליקציה ללא שרת וללא איסוף נתונים (ללא Cookies וללא Analytics). כל התיעודים, הקווים השמורים והפרטים האישיים לתלונה נשמרים אך ורק מקומית בדפדפן שבמכשיר שלך.
           </p>
           <p style="margin:6px 0 0;">
-            בעת לחיצה על "אמת מול OpenBus", נשלחת שאילתה טכנית (מספר קו, מפעיל וטווח שעות – ללא כל פרט מזהה) ל-API הפתוח של הסדנא לידע ציבורי. האתר מתארח ב-GitHub Pages, שעשוי לתעד לוגים טכניים סטנדרטיים לצורכי אבטחה ותפעול.
+            בעת לחיצה על "אמת מול OpenBus" או "אתר קווים", נשלחת שאילתה טכנית (מספר קו, מספר תחנה או טווח שעות – ללא פרט מזהה) ל-API הפתוח של הסדנא לידע ציבורי. כפתור "קרובות" (📍) הוא אופציונלי לחלוטין ומופעל רק באישור מפורש שלך: המיקום נשלח לרגע אחד בלבד ל-OpenStreetMap לצורך זיהוי העיר ואיתור תחנות סמוכות מ-OpenBus, ואינו נשמר בשום מקום (אפילו לא במכשיר). האתר מתארח ב-GitHub Pages, שעשוי לתעד לוגים טכניים סטנדרטיים לצורכי אבטחה ותפעול.
           </p>
         </div>
 

@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="./logo-wordmark.svg" alt="Wimby – Where Is My Bus?" width="320" />
+  <img src="./logo-wordmark.svg" alt="Wimby – Where Is My Bus?!" width="320" />
 </p>
 
-# Wimby – איפה האוטובוס?
+# Wimby – איפה האוטובוס שלי?!
 
 אפליקציית ווב חינמית, מהירה ו-100% פרטית (PWA) לתיעוד זמני המתנה לתחבורה ציבורית בישראל, אימות נסיעות מול מאגר הנתונים הפתוח של **OpenBus (דאטאבוס)**, והגשת תלונות למשרד התחבורה ולחברות המפעילות.
 
