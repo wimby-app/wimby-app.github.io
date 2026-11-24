@@ -9,6 +9,7 @@
     ROUTES: 'busWaitLogger_routes_v2',
     ACTIVE_ROUTE_ID: 'busWaitLogger_activeRouteId_v2',
     PROFILE: 'busWaitLogger_profile_v2',
+    PREFS: 'busWaitLogger_prefs_v2',
   };
 
   const MOT_EMAIL = 'pniotcrm@mot.gov.il';
@@ -42,6 +43,7 @@
   let activeRouteId = null;
   let activeSession = null; // { startIso, note, issueType, routeSnapshot }
   let profile = { fullName: '', idNumber: '', phone: '', address: '' };
+  let prefs = { minDelayMinutes: 15 };
 
   let timerInterval = null;
   let pendingConfirmCallback = null;
@@ -93,6 +95,7 @@
     // Settings Modal
     settingsModal: document.getElementById('settingsModal'),
     closeSettingsBtn: document.getElementById('closeSettingsBtn'),
+    minDelayInput: document.getElementById('minDelayInput'),
     savedRoutesList: document.getElementById('savedRoutesList'),
     routeForm: document.getElementById('routeForm'),
     editingRouteId: document.getElementById('editingRouteId'),
@@ -224,6 +227,15 @@
           address: p.address || '',
         };
       }
+
+      const savedPrefs = localStorage.getItem(STORAGE_KEYS.PREFS);
+      if (savedPrefs) {
+        const pr = JSON.parse(savedPrefs);
+        const minVal = Number(pr && pr.minDelayMinutes);
+        if (!Number.isNaN(minVal) && minVal >= 0 && minVal <= 120) {
+          prefs.minDelayMinutes = Math.round(minVal);
+        }
+      }
     } catch (err) {
       console.error('Error loading storage:', err);
     }
@@ -267,6 +279,14 @@
       localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(profile));
     } catch (err) {
       console.error('Error saving profile:', err);
+    }
+  }
+
+  function savePrefs() {
+    try {
+      localStorage.setItem(STORAGE_KEYS.PREFS, JSON.stringify(prefs));
+    } catch (err) {
+      console.error('Error saving prefs:', err);
     }
   }
 
@@ -449,12 +469,17 @@
     el.liveTimer.textContent = formatTimerDuration(elapsedSec);
     el.liveTimer.classList.remove('warn', 'danger');
 
-    if (elapsedMin >= 20) {
+    const minDelay = prefs.minDelayMinutes;
+    const dangerThreshold = Math.max(minDelay + 10, 20);
+
+    if (elapsedMin >= dangerThreshold) {
       el.liveTimer.classList.add('danger');
-      el.timerSubtext.textContent = 'המתנה חריגה (מעל 20 דקות)';
-    } else if (elapsedMin >= 12) {
+      el.timerSubtext.textContent = `המתנה חריגה (מעל ${dangerThreshold} דקות) • יישמר בהיסטוריה`;
+    } else if (minDelay > 0 && elapsedMin >= minDelay) {
       el.liveTimer.classList.add('warn');
-      el.timerSubtext.textContent = 'המתנה ממושכת (מעל 12 דקות)';
+      el.timerSubtext.textContent = `עבר את סף האיחור (${minDelay} דק') • יישמר בהיסטוריה`;
+    } else if (minDelay > 0) {
+      el.timerSubtext.textContent = `זמן המתנה נוכחי • סף תיעוד איחור: ${minDelay} דק'`;
     } else {
       el.timerSubtext.textContent = 'זמן המתנה נוכחי (דקות:שניות)';
     }
@@ -665,6 +690,18 @@
     const endDate = new Date();
     const diffSeconds = Math.max(0, Math.round((endDate.getTime() - startDate.getTime()) / 1000));
     const waitMinutes = Number((diffSeconds / 60).toFixed(1));
+
+    if (prefs.minDelayMinutes > 0 && waitMinutes < prefs.minDelayMinutes) {
+      activeSession = null;
+      saveActiveSession();
+      renderActionState();
+      showToast(
+        `ההמתנה (${formatWaitMinutesLabel(waitMinutes)}) קצרה מסף האיחור (${prefs.minDelayMinutes} דק') ולכן לא נשמרה`,
+        { duration: 4200 }
+      );
+      return;
+    }
+
     const route = activeSession.routeSnapshot || getActiveRoute() || {};
 
     const newEntry = {
@@ -773,6 +810,7 @@
   }
 
   function openSettingsModal() {
+    el.minDelayInput.value = String(prefs.minDelayMinutes);
     renderSavedRoutesList();
     resetRouteForm();
     el.settingsModal.classList.remove('hidden');
@@ -818,6 +856,7 @@
     const payload = {
       version: 2,
       exportedAt: new Date().toISOString(),
+      prefs,
       routes,
       activeRouteId,
       logs,
@@ -973,6 +1012,13 @@
     }
 
     const waitMinutes = Number((diffSeconds / 60).toFixed(1));
+
+    if (!editId && prefs.minDelayMinutes > 0 && waitMinutes < prefs.minDelayMinutes) {
+      el.manualErrorMsg.textContent = `ההמתנה (${formatWaitMinutesLabel(waitMinutes)}) קצרה מסף האיחור שהוגדר (${prefs.minDelayMinutes} דק') ולכן לא נשמרה. ניתן לשנות את הסף בהגדרות.`;
+      el.manualErrorMsg.classList.remove('hidden');
+      return;
+    }
+
     const chosenRoute = routes.find((r) => r.id === el.manualRouteSelect.value) || null;
 
     if (editId) {
@@ -1470,6 +1516,15 @@
     el.closeSettingsBtn.addEventListener('click', closeSettingsModal);
     el.settingsModal.addEventListener('click', (e) => {
       if (e.target === el.settingsModal) closeSettingsModal();
+    });
+    el.minDelayInput.addEventListener('change', () => {
+      const raw = Number(el.minDelayInput.value);
+      const clamped = Number.isNaN(raw) ? 15 : Math.max(0, Math.min(120, Math.round(raw)));
+      prefs.minDelayMinutes = clamped;
+      el.minDelayInput.value = String(clamped);
+      savePrefs();
+      if (activeSession) updateActiveTimerDisplay();
+      showToast(clamped === 0 ? 'כל זמני ההמתנה יישמרו (ללא סף מינימום)' : `סף האיחור עודכן ל-${clamped} דקות`);
     });
     el.routeForm.addEventListener('submit', handleRouteSubmit);
     el.resetRouteFormBtn.addEventListener('click', resetRouteForm);

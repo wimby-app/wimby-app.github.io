@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wimby-v6';
+const CACHE_NAME = 'wimby-v7';
 const ASSETS = [
   './',
   './index.html',

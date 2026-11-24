@@ -232,6 +232,16 @@
       </div>
       <p class="modal-sub">אפשר לשמור מספר קווים/תחנות (למשל הלוך וחזור) ולהחליף ביניהם בלחיצה.</p>
 
+      <div class="details-box" style="background:var(--primary-soft);border-color:var(--primary-border);">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <div>
+            <label for="minDelayInput" class="field-label" style="margin:0;color:var(--text);">סף זמן מינימלי לתיעוד "איחור" (דקות)</label>
+            <p class="modal-sub" style="margin:2px 0 0;">המתנה קצרה מהסף לא תישמר (0 = שמור הכל)</p>
+          </div>
+          <input id="minDelayInput" type="number" min="0" max="120" step="1" value="15" class="field-input tabular" style="width:76px;text-align:center;font-weight:800;background:#fff;flex-shrink:0;" />
+        </div>
+      </div>
+
       <div id="savedRoutesList" class="saved-routes-list"></div>
 
       <form id="routeForm" class="form-stack">
