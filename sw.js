@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wimby-v8';
+const CACHE_NAME = 'wimby-v9';
 const ASSETS = [
   './',
   './index.html',
@@ -34,29 +34,45 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) {
-        // Revalidate in background for fresh updates when online
-        fetch(event.request)
-          .then((response) => {
-            if (response && response.status === 200 && response.type === 'basic') {
-              caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response));
-            }
-          })
-          .catch(() => {});
-        return cached;
-      }
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return;
 
-      return fetch(event.request)
+  const isCodeAsset =
+    event.request.mode === 'navigate' ||
+    url.pathname.endsWith('/') ||
+    url.pathname.endsWith('.html') ||
+    url.pathname.endsWith('.js') ||
+    url.pathname.endsWith('.css') ||
+    url.pathname.endsWith('.json');
+
+  if (isCodeAsset) {
+    // Network-first for HTML/JS/CSS so installed PWAs pick up updates immediately,
+    // with automatic fallback to cache when offline.
+    event.respondWith(
+      fetch(event.request)
         .then((response) => {
-          if (response && response.status === 200 && response.type === 'basic') {
+          if (response && response.status === 200) {
             const clone = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           }
           return response;
         })
-        .catch(() => caches.match('./index.html'));
+        .catch(() => caches.match(event.request).then((c) => c || caches.match('./index.html')))
+    );
+    return;
+  }
+
+  // Cache-first for static images/icons
+  event.respondWith(
+    caches.match(event.request).then((cached) => {
+      if (cached) return cached;
+      return fetch(event.request).then((response) => {
+        if (response && response.status === 200) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
+        return response;
+      });
     })
   );
 });
