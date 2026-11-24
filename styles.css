@@ -1230,3 +1230,75 @@ button:disabled {
 .footer-link:hover {
   color: var(--primary);
 }
+
+/* Onboarding Tour Modal */
+.tour-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tour-dots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tour-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--border-strong);
+  transition: width 0.2s, background 0.2s;
+}
+
+.tour-dot.active {
+  width: 22px;
+  background: var(--primary);
+}
+
+.tour-slide {
+  text-align: center;
+  padding: 10px 4px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.tour-visual {
+  width: 68px;
+  height: 68px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.9rem;
+}
+
+.tour-visual.indigo { background: var(--primary-soft); color: var(--primary); }
+.tour-visual.amber { background: var(--amber-soft); color: var(--amber); }
+.tour-visual.emerald { background: var(--emerald-soft); color: var(--emerald); }
+
+.tour-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.tour-body {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  max-width: 340px;
+}
+
+.tour-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}

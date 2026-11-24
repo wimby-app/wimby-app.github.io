@@ -10,6 +10,7 @@
     ACTIVE_ROUTE_ID: 'busWaitLogger_activeRouteId_v2',
     PROFILE: 'busWaitLogger_profile_v2',
     PREFS: 'busWaitLogger_prefs_v2',
+    ONBOARDING_SEEN: 'busWaitLogger_onboarding_v1',
   };
 
   const MOT_EMAIL = 'pniotcrm@mot.gov.il';
@@ -54,6 +55,30 @@
   // Complaint wizard state
   let complaintSelectedIds = new Set();
   const verifyingLogIds = new Set();
+  let tourStep = 0;
+
+  const TOUR_SLIDES = [
+    {
+      visual: '<img src="./icon.svg" alt="Wimby" width="68" height="68" style="border-radius:18px;box-shadow:var(--shadow-sm);" />',
+      title: 'ברוך הבא ל-Wimby!',
+      body: 'מתעדים המתנות חריגות בתחנה בקליק אחד. הכל נשמר 100% אצלך במכשיר – בלי הרשמה, בלי שרת ובלי מעקב.',
+    },
+    {
+      visual: '<div class="tour-visual amber">⏱️</div>',
+      title: 'קווים קבועים וסף איחור',
+      body: 'שמור את הקווים הקבועים שלך (בוקר / ערב) להחלפה מהירה. כברירת מחדל רק המתנות מעל 15 דקות נשמרות – ואפשר לשנות את הסף בכל רגע בהגדרות.',
+    },
+    {
+      visual: '<div class="tour-visual emerald">✉️</div>',
+      title: 'אימות OpenBus והגשת תלונה',
+      body: 'אמת כל תיעוד מול נתוני ה-GPS הפתוחים של OpenBus (דאטאבוס), והפק תלונה רשמית מוכנה לשליחה במייל, עם CSV מצורף, או בטופס gov.il.',
+    },
+    {
+      visual: '<div class="tour-visual indigo">📱</div>',
+      title: 'הצמד למסך הבית',
+      body: 'לפתיחה מיידית בתחנה (גם בלי אינטרנט) ולשמירה בטוחה של ההיסטוריה ב-iPhone – הוסף את Wimby למסך הבית (שתף ← הוסף למסך הבית).',
+    },
+  ];
 
   // ---------- DOM Refs ----------
   const el = {
@@ -160,6 +185,16 @@
     aboutModal: document.getElementById('aboutModal'),
     closeAboutBtn: document.getElementById('closeAboutBtn'),
     closeAboutOkBtn: document.getElementById('closeAboutOkBtn'),
+
+    // Onboarding Tour Modal
+    openTourBtn: document.getElementById('openTourBtn'),
+    tourModal: document.getElementById('tourModal'),
+    tourDots: document.getElementById('tourDots'),
+    tourSlideContent: document.getElementById('tourSlideContent'),
+    tourSkipBtn: document.getElementById('tourSkipBtn'),
+    tourPrevBtn: document.getElementById('tourPrevBtn'),
+    tourNextBtn: document.getElementById('tourNextBtn'),
+    tourSetupRouteBtn: document.getElementById('tourSetupRouteBtn'),
 
     // Toast
     toast: document.getElementById('toast'),
@@ -1739,6 +1774,31 @@
       if (e.target === el.aboutModal) closeAbout();
     });
 
+    // Onboarding Tour Modal
+    el.openTourBtn.addEventListener('click', () => openTourModal(0));
+    el.tourSkipBtn.addEventListener('click', closeTourModal);
+    el.tourModal.addEventListener('click', (e) => {
+      if (e.target === el.tourModal) closeTourModal();
+    });
+    el.tourPrevBtn.addEventListener('click', () => {
+      if (tourStep > 0) {
+        tourStep -= 1;
+        renderTourSlide();
+      }
+    });
+    el.tourNextBtn.addEventListener('click', () => {
+      if (tourStep < TOUR_SLIDES.length - 1) {
+        tourStep += 1;
+        renderTourSlide();
+      } else {
+        closeTourModal();
+      }
+    });
+    el.tourSetupRouteBtn.addEventListener('click', () => {
+      closeTourModal();
+      openSettingsModal();
+    });
+
     // PWA Install Prompt
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
@@ -1753,6 +1813,40 @@
       deferredInstallPrompt = null;
       el.installBanner.classList.add('hidden');
     });
+  }
+
+  function renderTourSlide() {
+    const slide = TOUR_SLIDES[tourStep] || TOUR_SLIDES[0];
+    el.tourSlideContent.innerHTML = `
+      ${slide.visual}
+      <h3 id="tourTitle" class="tour-title">${escapeHtml(slide.title)}</h3>
+      <p class="tour-body">${escapeHtml(slide.body)}</p>
+    `;
+
+    el.tourDots.querySelectorAll('.tour-dot').forEach((dot, idx) => {
+      dot.classList.toggle('active', idx === tourStep);
+    });
+
+    const isFirst = tourStep === 0;
+    const isLast = tourStep === TOUR_SLIDES.length - 1;
+    el.tourPrevBtn.classList.toggle('hidden', isFirst);
+    el.tourSetupRouteBtn.classList.toggle('hidden', !(isLast && routes.length === 0));
+    el.tourNextBtn.textContent = isLast ? 'בוא נתחיל!' : 'הבא';
+  }
+
+  function openTourModal(startAt = 0) {
+    tourStep = startAt;
+    renderTourSlide();
+    el.tourModal.classList.remove('hidden');
+  }
+
+  function closeTourModal() {
+    el.tourModal.classList.add('hidden');
+    try {
+      localStorage.setItem(STORAGE_KEYS.ONBOARDING_SEEN, '1');
+    } catch {
+      // ignore storage errors
+    }
   }
 
   function registerServiceWorker() {
@@ -1773,6 +1867,15 @@
     updateLiveClock();
     setInterval(updateLiveClock, 15000);
     registerServiceWorker();
+
+    try {
+      const seenTour = localStorage.getItem(STORAGE_KEYS.ONBOARDING_SEEN);
+      if (!seenTour && logs.length === 0 && !activeSession) {
+        openTourModal(0);
+      }
+    } catch {
+      // ignore
+    }
   }
 
   init();

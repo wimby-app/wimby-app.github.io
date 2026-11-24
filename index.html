@@ -208,6 +208,8 @@
     </main>
 
     <footer class="app-footer">
+      <button id="openTourBtn" type="button" class="footer-link">איך זה עובד?</button>
+      <span aria-hidden="true">•</span>
       <button id="openAboutBtn" type="button" class="footer-link">אודות, פרטיות והבהרה</button>
       <span aria-hidden="true">•</span>
       <a href="https://github.com/wimby-app/wimby-app.github.io" target="_blank" rel="noopener noreferrer" class="footer-link">
@@ -472,6 +474,29 @@
           <button id="downloadSelectedCsvBtn" type="button" class="btn btn-secondary">הורד CSV לצירוף</button>
           <button id="markReportedBtn" type="button" class="btn btn-secondary" style="color:var(--emerald);border-color:var(--emerald-border);">סמן כ"דווח ✓"</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Onboarding Welcome Tour Modal -->
+  <div id="tourModal" class="modal-backdrop centered hidden" role="dialog" aria-modal="true" aria-labelledby="tourTitle">
+    <div class="modal-sheet" style="max-width:400px;border-radius:26px;">
+      <div class="tour-top">
+        <div id="tourDots" class="tour-dots" aria-hidden="true">
+          <span class="tour-dot active"></span>
+          <span class="tour-dot"></span>
+          <span class="tour-dot"></span>
+          <span class="tour-dot"></span>
+        </div>
+        <button id="tourSkipBtn" type="button" class="mini-btn">דלג</button>
+      </div>
+
+      <div id="tourSlideContent" class="tour-slide"></div>
+
+      <div class="tour-actions">
+        <button id="tourPrevBtn" type="button" class="btn btn-subtle hidden" style="padding:11px 16px;">הקודם</button>
+        <button id="tourSetupRouteBtn" type="button" class="btn btn-secondary hidden" style="flex:1;padding:12px 10px;">הגדר קו ראשון</button>
+        <button id="tourNextBtn" type="button" class="btn btn-primary" style="flex:1;">הבא</button>
       </div>
     </div>
   </div>
