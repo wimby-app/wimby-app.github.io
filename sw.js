@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wimby-v13';
+const CACHE_NAME = 'wimby-v14';
 const ASSETS = [
   './',
   './index.html',
@@ -49,7 +49,7 @@ self.addEventListener('fetch', (event) => {
     // Network-first for HTML/JS/CSS so installed PWAs pick up updates immediately,
     // with automatic fallback to cache when offline.
     event.respondWith(
-      fetch(event.request)
+      fetch(event.request, { cache: 'no-cache' })
         .then((response) => {
           if (response && response.status === 200) {
             const clone = response.clone();

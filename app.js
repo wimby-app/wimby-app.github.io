@@ -99,8 +99,8 @@
     },
     {
       visual: '<div class="tour-visual emerald">✉️</div>',
-      title: 'אימות OpenBus והגשת תלונה',
-      body: 'אמת כל תיעוד מול נתוני ה-GPS הפתוחים של OpenBus (דאטאבוס), והפק תלונה רשמית מוכנה לשליחה במייל, עם CSV מצורף, או בטופס gov.il.',
+      title: 'אימות מול דאטאבוס והגשת תלונה',
+      body: 'אמת כל תיעוד מול נתוני ה-GPS הפתוחים של דאטאבוס, והפק תלונה רשמית מוכנה לשליחה במייל, עם CSV מצורף, או בטופס gov.il.',
     },
     {
       visual: '<div class="tour-visual indigo">📱</div>',
@@ -808,18 +808,18 @@
           : `(${ob.windowLabel})`;
 
         if (ob.plannedCount === 0) {
-          summaryText = `אימות OpenBus ${scopeLabel}: לא נמצאו נסיעות מתוכננות בלו"ז בטווח זה.`;
+          summaryText = `אימות דאטאבוס ${scopeLabel}: לא נמצאו נסיעות מתוכננות בלו"ז בטווח זה.`;
         } else if (ob.missingCount > 0) {
           boxClass = 'missing';
           const timesLabel = ob.stopLevel ? 'הגעות חסרות לתחנה' : 'יציאות חסרות';
           const timesStr = ob.missingTimes && ob.missingTimes.length ? ` (${timesLabel}: ${ob.missingTimes.join(', ')})` : '';
-          summaryText = `אימות OpenBus ${scopeLabel}: מתוך ${ob.plannedCount} נסיעות מתוכננות, ${ob.missingCount} לא תועדו ב-GPS${timesStr}.`;
+          summaryText = `אימות דאטאבוס ${scopeLabel}: מתוך ${ob.plannedCount} נסיעות מתוכננות, ${ob.missingCount} לא תועדו ב-GPS${timesStr}.`;
         } else {
           boxClass = 'ok';
           const plannedStr = ob.stopLevel && ob.plannedTimes && ob.plannedTimes.length
             ? ` (${ob.plannedTimes.join(', ')})`
             : '';
-          summaryText = `אימות OpenBus ${scopeLabel}: כל ${ob.plannedCount} הנסיעות המתוכננות${plannedStr} תועדו ב-GPS (ייתכן איחור או עומס).`;
+          summaryText = `אימות דאטאבוס ${scopeLabel}: כל ${ob.plannedCount} הנסיעות המתוכננות${plannedStr} תועדו ב-GPS (ייתכן איחור או עומס).`;
         }
         const staleHint = ob.isSameDay && ob.executedCount === 0 && ob.plannedCount > 0
           ? ' • שים לב: נתוני היום מתעדכנים לעיתים רק לאחר מספר שעות.'
@@ -833,7 +833,7 @@
       }
 
       const verifyBtnHtml = entry.line
-        ? `<button type="button" class="mini-btn" style="color:var(--emerald);" data-verify-id="${escapeHtml(entry.id)}" ${isVerifying ? 'disabled' : ''}>${isVerifying ? '⏳ בודק...' : (entry.openBus ? '↻ אמת שוב' : '🔍 אמת מול OpenBus')}</button>`
+        ? `<button type="button" class="mini-btn" style="color:var(--emerald);" data-verify-id="${escapeHtml(entry.id)}" ${isVerifying ? 'disabled' : ''}>${isVerifying ? '⏳ בודק...' : (entry.openBus ? '↻ אמת שוב' : '🔍 אמת מול דאטאבוס')}</button>`
         : '';
 
       return `
@@ -1226,7 +1226,7 @@
       return;
     }
 
-    el.stopLookupStatus.textContent = '⏳ מאתר תחנה וקווים ב-OpenBus...';
+    el.stopLookupStatus.textContent = '⏳ מאתר תחנה וקווים בדאטאבוס...';
     el.stopLookupStatus.classList.remove('hidden');
     el.stopLinesFilter.value = '';
     el.stopLinesFilter.classList.add('hidden');
@@ -1257,7 +1257,7 @@
       el.stopLinesList.classList.remove('hidden');
     } catch (err) {
       console.error('Stop lookup failed:', err);
-      el.stopLookupStatus.textContent = 'לא ניתן להתחבר כרגע ל-OpenBus (בדוק חיבור אינטרנט או הזן ידנית).';
+      el.stopLookupStatus.textContent = 'לא ניתן להתחבר כרגע לדאטאבוס (בדוק חיבור אינטרנט או הזן ידנית).';
     } finally {
       el.lookupStopBtn.disabled = false;
     }
@@ -1270,7 +1270,7 @@
       return;
     }
 
-    el.manualLookupStatus.textContent = '⏳ מאתר תחנה וקווים ב-OpenBus...';
+    el.manualLookupStatus.textContent = '⏳ מאתר תחנה וקווים בדאטאבוס...';
     el.manualLookupStatus.classList.remove('hidden');
     el.manualStopLinesFilter.value = '';
     el.manualStopLinesFilter.classList.add('hidden');
@@ -1301,7 +1301,7 @@
       el.manualStopLinesList.classList.remove('hidden');
     } catch (err) {
       console.error('Manual stop lookup failed:', err);
-      el.manualLookupStatus.textContent = 'לא ניתן להתחבר כרגע ל-OpenBus (בדוק חיבור אינטרנט או הזן ידנית).';
+      el.manualLookupStatus.textContent = 'לא ניתן להתחבר כרגע לדאטאבוס (בדוק חיבור אינטרנט או הזן ידנית).';
     } finally {
       el.manualLookupStopBtn.disabled = false;
     }
@@ -1784,7 +1784,7 @@
       'Direction',
       'Note',
       'Reported',
-      'OpenBus_Verification',
+      'DataBus_Verification',
       'Start_ISO',
       'End_ISO',
     ];
@@ -1913,7 +1913,7 @@
           : `טווח ${ob.windowLabel}`;
         const timesLabel = ob.stopLevel ? 'שעות הגעה חסרות לתחנה' : 'שעות יציאה חסרות';
         const timesStr = ob.missingTimes && ob.missingTimes.length ? ` (${timesLabel}: ${ob.missingTimes.join(', ')})` : '';
-        line += `\n  ↳ אימות מול נתוני משרד התחבורה הפתוחים (OpenBus/דאטאבוס, ${scope}): מתוך ${ob.plannedCount} נסיעות מתוכננות, ${ob.missingCount} לא תועדו כבוצעו ב-GPS${timesStr}.`;
+        line += `\n  ↳ אימות מול נתוני משרד התחבורה הפתוחים (דאטאבוס / OpenBus, ${scope}): מתוך ${ob.plannedCount} נסיעות מתוכננות, ${ob.missingCount} לא תועדו כבוצעו ב-GPS${timesStr}.`;
       }
       return line;
     });
@@ -2077,7 +2077,7 @@
     const entry = logs.find((l) => l.id === logId);
     if (!entry) return;
     if (!entry.line) {
-      showToast('כדי לאמת מול OpenBus יש להגדיר מספר קו');
+      showToast('כדי לאמת מול דאטאבוס יש להגדיר מספר קו');
       return;
     }
 
@@ -2260,14 +2260,14 @@
       saveLogs();
       showToast(
         plannedCount === 0
-          ? 'לא נמצאו נסיעות מתוכננות ב-OpenBus לטווח זה'
+          ? 'לא נמצאו נסיעות מתוכננות בדאטאבוס לטווח זה'
           : missingCount > 0
-            ? `אומת מול OpenBus: ${missingCount} נסיעות לא תועדו ב-GPS`
-            : 'אומת מול OpenBus: כל הנסיעות המתוכננות תועדו'
+            ? `אומת מול דאטאבוס: ${missingCount} נסיעות לא תועדו ב-GPS`
+            : 'אומת מול דאטאבוס: כל הנסיעות המתוכננות תועדו'
       );
     } catch (err) {
       console.error('OpenBus verification failed:', err);
-      showToast('לא ניתן להתחבר כרגע ל-OpenBus (בדוק חיבור אינטרנט)');
+      showToast('לא ניתן להתחבר כרגע לדאטאבוס (בדוק חיבור אינטרנט)');
     } finally {
       verifyingLogIds.delete(logId);
       renderLogs();
@@ -2848,7 +2848,7 @@
       'גם לך האוטובוס שוב לא מגיע?!',
       'ממליץ על *Wimby* – אפליקציה חינמית ו-100% פרטית (בלי הרשמה ובלי שרת):',
       '• מתעדים המתנה בתחנה בקליק אחד',
-      '• מאמתים אוטומטית מול נתוני ה-GPS של OpenBus (דאטאבוס)',
+      '• מאמתים אוטומטית מול נתוני ה-GPS של דאטאבוס',
       '• מפיקים תלונה מוכנה לשליחה למשרד התחבורה ולמפעיל',
       '',
       'לכניסה (מומלץ להצמיד למסך הבית):',
@@ -2861,7 +2861,7 @@
 
   function registerServiceWorker() {
     if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
-      navigator.serviceWorker.register('./sw.js').catch((err) => {
+      navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).catch((err) => {
         console.warn('SW registration failed:', err);
       });
     }
