@@ -1,11 +1,12 @@
 (function () {
   'use strict';
 
-  const APP_VERSION = '2.2';
+  const APP_VERSION = '2.3';
   const WHATS_NEW_ITEMS = [
-    'חיווי והחלפת קו בזמן אמת מתוך כרטיס ההמתנה (או מהסרגל העליון) בלי לאפס את הטיימר.',
-    'תמיכה ב"קו חד-פעמי" במדידה חיה, בתיעוד ידני ובעריכה (כולל איתור תחנות מול OpenBus) בלי לזהם את הקווים הקבועים.',
-    'תיקון ועדכון כל קישורי התלונות למשרד התחבורה (gov.il) ולמפעילים, כולל מיילים ישירים למפעילים נוספים.',
+    'תיעוד "עבר אוטובוס מלא / לא עצר" בזמן אמת ממסך ההמתנה – שומר שעה מדויקת בלי לאפס את הטיימר, עוקף את סף המינימום, ונכנס אוטומטית לנוסח התלונה (עם בקשה לתגבור קו) ולקובץ ה-CSV.',
+    'התקנה למסך הבית זמינה תמיד (בהגדרות, בבאנר העליון ובתחתית המסך) – כולל מדריך מהיר מותאם למכשיר גם אם הדפדפן לא הציג הצעת התקנה אוטומטית.',
+    'שיתוף Wimby בווטסאפ בלחיצה אחת עם הודעה מוכנה להמלצה לחברים.',
+    'סרגל הקווים העליון גולל אוטומטית אל הקו הפעיל.',
   ];
 
   // ---------- Constants ----------
@@ -20,6 +21,7 @@
     ONBOARDING_SEEN: 'busWaitLogger_onboarding_v1',
     LAST_SEEN_VERSION: 'busWaitLogger_lastSeenVersion_v1',
     HIDE_WHATS_NEW: 'busWaitLogger_hideWhatsNew_v1',
+    INSTALL_DISMISSED: 'busWaitLogger_installDismissed_v1',
   };
 
   const MOT_EMAIL = 'pniotcrm@mot.gov.il';
@@ -110,9 +112,22 @@
   // ---------- DOM Refs ----------
   const el = {
     openSettingsBtn: document.getElementById('openSettingsBtn'),
+    headerShareBtn: document.getElementById('headerShareBtn'),
     routesBar: document.getElementById('routesBar'),
     installBanner: document.getElementById('installBanner'),
     installAppBtn: document.getElementById('installAppBtn'),
+    dismissInstallBannerBtn: document.getElementById('dismissInstallBannerBtn'),
+    footerInstallBtn: document.getElementById('footerInstallBtn'),
+    footerInstallSep: document.getElementById('footerInstallSep'),
+    footerShareBtn: document.getElementById('footerShareBtn'),
+    settingsInstallBtn: document.getElementById('settingsInstallBtn'),
+    settingsInstalledBadge: document.getElementById('settingsInstalledBadge'),
+    installGuideModal: document.getElementById('installGuideModal'),
+    installGuideInAppWarn: document.getElementById('installGuideInAppWarn'),
+    installGuideIntro: document.getElementById('installGuideIntro'),
+    installGuideSteps: document.getElementById('installGuideSteps'),
+    closeInstallGuideBtn: document.getElementById('closeInstallGuideBtn'),
+    closeInstallGuideOkBtn: document.getElementById('closeInstallGuideOkBtn'),
 
     idleView: document.getElementById('idleView'),
     waitingView: document.getElementById('waitingView'),
@@ -125,6 +140,10 @@
     activeWaitNoRouteBtn: document.getElementById('activeWaitNoRouteBtn'),
     liveTimer: document.getElementById('liveTimer'),
     timerSubtext: document.getElementById('timerSubtext'),
+    markFullBusBtn: document.getElementById('markFullBusBtn'),
+    activeFullBusesSummary: document.getElementById('activeFullBusesSummary'),
+    activeFullBusesText: document.getElementById('activeFullBusesText'),
+    undoFullBusBtn: document.getElementById('undoFullBusBtn'),
     activeNoteInput: document.getElementById('activeNoteInput'),
     busArrivedBtn: document.getElementById('busArrivedBtn'),
     gaveUpBtn: document.getElementById('gaveUpBtn'),
@@ -276,7 +295,10 @@
       const savedActive = localStorage.getItem(STORAGE_KEYS.ACTIVE);
       if (savedActive) {
         const parsedActive = JSON.parse(savedActive);
-        if (parsedActive && parsedActive.startIso) activeSession = parsedActive;
+        if (parsedActive && parsedActive.startIso) {
+          if (!Array.isArray(parsedActive.fullBuses)) parsedActive.fullBuses = [];
+          activeSession = parsedActive;
+        }
       }
 
       const savedRoutes = localStorage.getItem(STORAGE_KEYS.ROUTES);
@@ -385,6 +407,18 @@
 
   function getActiveRoute() {
     return routes.find((r) => r.id === activeRouteId) || null;
+  }
+
+  function getFullBusTimes(item) {
+    return Array.isArray(item && item.fullBuses) ? item.fullBuses : [];
+  }
+
+  function formatFullBusTimes(isoList) {
+    return isoList
+      .map((iso) => new Date(iso))
+      .filter((d) => !isNaN(d.getTime()))
+      .map((d) => formatTimeHHMM(d))
+      .join(', ');
   }
 
   function formatRouteShort(route) {
@@ -542,6 +576,11 @@
 
     el.routesBar.innerHTML = chips.join('');
 
+    const activeChip = el.routesBar.querySelector('.route-chip.active');
+    if (activeChip && typeof activeChip.scrollIntoView === 'function') {
+      activeChip.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
+    }
+
     const active = getActiveRoute();
     el.startBtnRouteHint.textContent = active
       ? `תיעוד עבור: ${formatRouteShort(active)}`
@@ -571,6 +610,9 @@
     } else if (minDelay > 0 && elapsedMin >= minDelay) {
       el.liveTimer.classList.add('warn');
       el.timerSubtext.textContent = `עבר את סף האיחור (${minDelay} דק') • יישמר בהיסטוריה`;
+    } else if (minDelay > 0 && getFullBusTimes(activeSession).length > 0) {
+      el.liveTimer.classList.add('warn');
+      el.timerSubtext.textContent = 'תועד אוטובוס מלא • יישמר בהיסטוריה גם מתחת לסף האיחור';
     } else if (minDelay > 0) {
       el.timerSubtext.textContent = `זמן המתנה נוכחי • סף תיעוד איחור: ${minDelay} דק'`;
     } else {
@@ -627,6 +669,20 @@
     renderRoutesBar();
   }
 
+  function renderActiveFullBusesUI() {
+    const list = getFullBusTimes(activeSession);
+    if (list.length === 0) {
+      el.activeFullBusesSummary.classList.add('hidden');
+      el.activeFullBusesText.textContent = '';
+      return;
+    }
+    const timesStr = formatFullBusTimes(list);
+    el.activeFullBusesText.textContent = list.length === 1
+      ? `עבר אוטובוס מלא ב-${timesStr} (הטיימר ממשיך)`
+      : `עברו ${list.length} אוטובוסים מלאים (${timesStr})`;
+    el.activeFullBusesSummary.classList.remove('hidden');
+  }
+
   function renderActionState() {
     if (timerInterval) {
       clearInterval(timerInterval);
@@ -641,6 +697,7 @@
       el.waitStartTimeText.textContent = formatTimeHHMMSS(startDate);
       el.activeNoteInput.value = activeSession.note || '';
       renderActiveWaitRouteUI();
+      renderActiveFullBusesUI();
       updateActiveTimerDisplay();
       timerInterval = setInterval(updateActiveTimerDisplay, 1000);
     } else {
@@ -719,6 +776,14 @@
         ? `<span class="badge badge-rose">${escapeHtml(entry.issueType)}</span>`
         : '';
 
+      const fullList = getFullBusTimes(entry);
+      const fullBusLabel = fullList.length === 1
+        ? `עבר מלא (${formatFullBusTimes(fullList)})`
+        : `${fullList.length} עברו מלאים (${formatFullBusTimes(fullList)})`;
+      const fullBusBadge = fullList.length > 0
+        ? `<span class="badge badge-rose">${escapeHtml(fullBusLabel)}</span>`
+        : '';
+
       const reportedBadge = entry.reportedAt
         ? '<span class="badge badge-indigo">דווח ✓</span>'
         : '';
@@ -780,6 +845,7 @@
                 <span class="log-day">${getHebrewDay(s)}</span>
                 ${statusBadge}
                 ${issueBadge}
+                ${fullBusBadge}
                 ${reportedBadge}
               </div>
               <div class="log-times">
@@ -820,11 +886,32 @@
       startIso: new Date().toISOString(),
       note: '',
       issueType: '',
+      fullBuses: [],
       routeSnapshot: active ? { ...active } : null,
     };
     saveActiveSession();
     renderActionState();
     showToast('המדידה התחילה – שעת ההגעה נשמרה');
+  }
+
+  function markPassedFullBus() {
+    if (!activeSession) return;
+    if (!Array.isArray(activeSession.fullBuses)) activeSession.fullBuses = [];
+    const now = new Date();
+    activeSession.fullBuses.push(now.toISOString());
+    saveActiveSession();
+    renderActiveFullBusesUI();
+    updateActiveTimerDisplay();
+    showToast(`נרשם אוטובוס מלא בשעה ${formatTimeHHMM(now)} – הטיימר ממשיך`);
+  }
+
+  function undoLastFullBus() {
+    if (!activeSession || !Array.isArray(activeSession.fullBuses) || activeSession.fullBuses.length === 0) return;
+    activeSession.fullBuses.pop();
+    saveActiveSession();
+    renderActiveFullBusesUI();
+    updateActiveTimerDisplay();
+    showToast('הסימון האחרון בוטל');
   }
 
   function finishWaiting(status) {
@@ -833,8 +920,9 @@
     const endDate = new Date();
     const diffSeconds = Math.max(0, Math.round((endDate.getTime() - startDate.getTime()) / 1000));
     const waitMinutes = Number((diffSeconds / 60).toFixed(1));
+    const fullBuses = getFullBusTimes(activeSession).slice();
 
-    if (prefs.minDelayMinutes > 0 && waitMinutes < prefs.minDelayMinutes) {
+    if (prefs.minDelayMinutes > 0 && waitMinutes < prefs.minDelayMinutes && fullBuses.length === 0) {
       activeSession = null;
       saveActiveSession();
       renderActionState();
@@ -855,6 +943,7 @@
       waitMinutes,
       status,
       issueType: activeSession.issueType || '',
+      fullBuses,
       note: (el.activeNoteInput.value || '').trim(),
       line: route.line || '',
       operator: route.operator || '',
@@ -1345,6 +1434,7 @@
           startIso: new Date().toISOString(),
           note: '',
           issueType: '',
+          fullBuses: [],
           routeSnapshot: oneTimeRoute,
         };
         saveActiveSession();
@@ -1588,7 +1678,7 @@
 
     const waitMinutes = Number((diffSeconds / 60).toFixed(1));
 
-    if (!editId && prefs.minDelayMinutes > 0 && waitMinutes < prefs.minDelayMinutes) {
+    if (!editId && prefs.minDelayMinutes > 0 && waitMinutes < prefs.minDelayMinutes && issueVal !== 'עמוס ולא עצר') {
       el.manualErrorMsg.textContent = `ההמתנה (${formatWaitMinutesLabel(waitMinutes)}) קצרה מסף האיחור שהוגדר (${prefs.minDelayMinutes} דק') ולכן לא נשמרה. ניתן לשנות את הסף בהגדרות.`;
       el.manualErrorMsg.classList.remove('hidden');
       return;
@@ -1686,6 +1776,7 @@
       'Wait_Minutes',
       'Status',
       'Issue_Type',
+      'Full_Buses_Passed',
       'Line',
       'Operator',
       'Station_Code',
@@ -1712,6 +1803,7 @@
         entry.waitMinutes,
         entry.status === 'arrived' ? 'האוטובוס הגיע' : 'ויתרתי / חלופה',
         entry.issueType || '',
+        formatFullBusTimes(getFullBusTimes(entry)).replace(/, /g, '; '),
         entry.line || '',
         entry.operator || '',
         entry.stopCode || '',
@@ -1762,11 +1854,18 @@
     return checked ? checked.value : 'mot';
   }
 
+  function hasFullBusEntries(entries) {
+    return entries.some((item) => getFullBusTimes(item).length > 0 || item.issueType === 'עמוס ולא עצר');
+  }
+
   function buildComplaintSubject(entries) {
     const lines = [...new Set(entries.map((e) => e.line).filter(Boolean))];
     const op = getPrimaryOperatorForEntries(entries);
     const linePart = lines.length > 0 ? `קו ${lines.join(', ')}` : 'תחבורה ציבורית';
     const opPart = op ? ` (${op})` : '';
+    if (hasFullBusEntries(entries)) {
+      return `תלונה על עומס, אי-ביצוע נסיעות וזמני המתנה חריגים – ${linePart}${opPart}`;
+    }
     return `תלונה על אי-ביצוע נסיעות וזמני המתנה חריגים – ${linePart}${opPart}`;
   }
 
@@ -1782,6 +1881,8 @@
     const avg = (entries.reduce((acc, i) => acc + (i.waitMinutes || 0), 0) / total).toFixed(1);
     const max = Math.round(Math.max(...entries.map((i) => i.waitMinutes || 0)));
     const gaveUp = entries.filter((i) => i.status === 'gave_up').length;
+    const hasFullBusIssue = hasFullBusEntries(entries);
+    const totalFullBuses = entries.reduce((sum, item) => sum + getFullBusTimes(item).length, 0);
 
     const greeting = target === 'mot'
       ? 'לכבוד: הרשות הארצית לתחבורה ציבורית – משרד התחבורה,'
@@ -1799,8 +1900,12 @@
       const statusText = entry.status === 'arrived' ? 'האוטובוס הגיע באיחור' : 'ויתרתי / נסעתי בחלופה';
       const issuePart = entry.issueType ? ` [${entry.issueType}]` : '';
       const routeExtra = lines.length > 1 && entry.line ? ` (קו ${entry.line}${entry.stopCode ? `, תחנה ${entry.stopCode}` : ''})` : '';
+      const fullList = getFullBusTimes(entry);
+      const fullBusPart = fullList.length > 0
+        ? ` | אוטובוסים שעברו מלאים ולא ניתן היה לעלות: ${formatFullBusTimes(fullList)}`
+        : '';
       const notePart = entry.note ? ` | הערה: ${entry.note}` : '';
-      let line = `• ${formatDateDDMMYYYY(s)} (${getHebrewDay(s)}): המתנה בין ${formatTimeHHMM(s)} ל-${formatTimeHHMM(e)} – סה"כ ${Math.round(entry.waitMinutes)} דקות (${statusText})${issuePart}${routeExtra}${notePart}`;
+      let line = `• ${formatDateDDMMYYYY(s)} (${getHebrewDay(s)}): המתנה בין ${formatTimeHHMM(s)} ל-${formatTimeHHMM(e)} – סה"כ ${Math.round(entry.waitMinutes)} דקות (${statusText})${issuePart}${routeExtra}${fullBusPart}${notePart}`;
       if (entry.openBus && entry.openBus.plannedCount > 0) {
         const ob = entry.openBus;
         const scope = ob.stopLevel && entry.stopCode
@@ -1830,16 +1935,20 @@
       greeting,
       '',
       'שלום רב,',
-      `ברצוני להגיש תלונה מתועדת בנוגע לזמני המתנה חריגים ושיבושים בשירות${lines.length ? ` בקו ${lines.join(', ')}` : ''}${op ? ` של חברת ${op}` : ''}.`,
+      hasFullBusIssue
+        ? `ברצוני להגיש תלונה מתועדת בנוגע לזמני המתנה חריגים, עומס יתר ושיבושים בשירות${lines.length ? ` בקו ${lines.join(', ')}` : ''}${op ? ` של חברת ${op}` : ''}.`
+        : `ברצוני להגיש תלונה מתועדת בנוגע לזמני המתנה חריגים ושיבושים בשירות${lines.length ? ` בקו ${lines.join(', ')}` : ''}${op ? ` של חברת ${op}` : ''}.`,
       '',
       ...metaLines,
-      `סיכום התיעודים: ${total} מקרים | ממוצע המתנה: ${avg} דק' | המתנה מרבית: ${max} דק' | ויתורים/חלופה: ${gaveUp}`,
+      `סיכום התיעודים: ${total} מקרים | ממוצע המתנה: ${avg} דק' | המתנה מרבית: ${max} דק' | ויתורים/חלופה: ${gaveUp}${totalFullBuses > 0 ? ` | עברו מלאים: ${totalFullBuses}` : ''}`,
       '',
       'פירוט המקרים (תועד בזמן אמת בתחנה):',
       ...bullets,
       ...(openBusFootnote ? [openBusFootnote] : []),
       '',
-      'אבקש לבדוק את ביצוע הנסיעות המתוכננות במועדים אלו, לנקוט צעדי אכיפה/תיקון בהתאם, ולעדכן אותי במספר הפנייה ובממצאי הבדיקה.',
+      hasFullBusIssue
+        ? 'אבקש לבדוק את ביצוע הנסיעות המתוכננות ואת העומסים בקו במועדים אלו, לבחון תגבור של הקו בשעות העומס ולנקוט צעדי אכיפה/תיקון בהתאם, וכן לעדכן אותי במספר הפנייה ובממצאי הבדיקה.'
+        : 'אבקש לבדוק את ביצוע הנסיעות המתוכננות במועדים אלו, לנקוט צעדי אכיפה/תיקון בהתאם, ולעדכן אותי במספר הפנייה ובממצאי הבדיקה.',
       '',
       personalBlock,
     ].join('\n');
@@ -1923,11 +2032,15 @@
       const s = new Date(entry.startIso);
       const checked = complaintSelectedIds.has(entry.id) ? 'checked' : '';
       const lineTag = entry.line ? `קו ${entry.line} • ` : '';
+      const fullList = getFullBusTimes(entry);
+      const fullTag = fullList.length > 0
+        ? ` • ${fullList.length === 1 ? 'עבר מלא' : `${fullList.length} עברו מלאים`}`
+        : '';
       const reportedTag = entry.reportedAt ? ' (דווח)' : '';
       return `
         <label class="check-item">
           <input type="checkbox" value="${escapeHtml(entry.id)}" ${checked} />
-          <span><strong>${formatDateDDMMYYYY(s)} ${formatTimeHHMM(s)}</strong> • ${escapeHtml(lineTag)}${Math.round(entry.waitMinutes)} דק'${reportedTag}</span>
+          <span><strong>${formatDateDDMMYYYY(s)} ${formatTimeHHMM(s)}</strong> • ${escapeHtml(lineTag)}${Math.round(entry.waitMinutes)} דק'${fullTag}${reportedTag}</span>
         </label>
       `;
     }).join('');
@@ -2196,6 +2309,8 @@
 
     // Main wait actions
     el.startWaitBtn.addEventListener('click', startWaiting);
+    el.markFullBusBtn.addEventListener('click', markPassedFullBus);
+    el.undoFullBusBtn.addEventListener('click', undoLastFullBus);
     el.busArrivedBtn.addEventListener('click', () => finishWaiting('arrived'));
     el.gaveUpBtn.addEventListener('click', () => finishWaiting('gave_up'));
     el.cancelWaitBtn.addEventListener('click', requestCancelWaiting);
@@ -2540,19 +2655,41 @@
       if (e.target === el.whatsNewModal) closeWhatsNewModal();
     });
 
-    // PWA Install Prompt
+    // PWA Install Prompt & Fallback Guide
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredInstallPrompt = e;
-      el.installBanner.classList.remove('hidden');
+      updateInstallUI();
     });
 
-    el.installAppBtn.addEventListener('click', async () => {
-      if (!deferredInstallPrompt) return;
-      deferredInstallPrompt.prompt();
-      await deferredInstallPrompt.userChoice;
+    window.addEventListener('appinstalled', () => {
       deferredInstallPrompt = null;
-      el.installBanner.classList.add('hidden');
+      updateInstallUI();
+      showToast('Wimby הותקנה בהצלחה למסך הבית! 🎉');
+    });
+
+    el.installAppBtn.addEventListener('click', triggerAppInstall);
+    el.footerInstallBtn.addEventListener('click', triggerAppInstall);
+    el.headerShareBtn.addEventListener('click', shareAppOnWhatsApp);
+    el.footerShareBtn.addEventListener('click', shareAppOnWhatsApp);
+    el.settingsInstallBtn.addEventListener('click', () => {
+      closeSettingsModal();
+      triggerAppInstall();
+    });
+
+    el.dismissInstallBannerBtn.addEventListener('click', () => {
+      try {
+        localStorage.setItem(STORAGE_KEYS.INSTALL_DISMISSED, '1');
+      } catch {
+        // ignore
+      }
+      updateInstallUI();
+    });
+
+    el.closeInstallGuideBtn.addEventListener('click', closeInstallGuideModal);
+    el.closeInstallGuideOkBtn.addEventListener('click', closeInstallGuideModal);
+    el.installGuideModal.addEventListener('click', (e) => {
+      if (e.target === el.installGuideModal) closeInstallGuideModal();
     });
   }
 
@@ -2609,6 +2746,119 @@
     }
   }
 
+  function isRunningStandalone() {
+    return (
+      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+      window.navigator.standalone === true
+    );
+  }
+
+  function detectDeviceInfo() {
+    const ua = navigator.userAgent || '';
+    const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isAndroid = /Android/i.test(ua);
+    const isSamsung = /SamsungBrowser/i.test(ua);
+    const isInApp = /WhatsApp|Telegram|FBAN|FBAV|Instagram|Line|MicroMessenger/i.test(ua);
+    return { isIOS, isAndroid, isSamsung, isInApp };
+  }
+
+  function updateInstallUI() {
+    const installed = isRunningStandalone();
+    let dismissed = false;
+    try {
+      dismissed = localStorage.getItem(STORAGE_KEYS.INSTALL_DISMISSED) === '1';
+    } catch {
+      // ignore
+    }
+
+    el.footerInstallBtn.classList.toggle('hidden', installed);
+    el.footerInstallSep.classList.toggle('hidden', installed);
+    el.settingsInstallBtn.classList.toggle('hidden', installed);
+    el.settingsInstalledBadge.classList.toggle('hidden', !installed);
+
+    // Show top banner whenever not installed and not explicitly dismissed (works on iOS, Android, etc.)
+    const showBanner = !installed && !dismissed;
+    el.installBanner.classList.toggle('hidden', !showBanner);
+  }
+
+  function openInstallGuideModal() {
+    const { isIOS, isAndroid, isSamsung, isInApp } = detectDeviceInfo();
+    el.installGuideInAppWarn.classList.toggle('hidden', !isInApp);
+
+    let intro = '';
+    let steps = [];
+    if (isIOS) {
+      intro = 'כדי להצמיד את Wimby למסך הבית באייפון (Safari):';
+      steps = [
+        'לחץ על כפתור השיתוף (⬆️) בתחתית הדפדפן.',
+        'גלול מטה ובחר "הוסף למסך הבית" (Add to Home Screen).',
+        'לחץ "הוסף" בפינה העליונה – ו-Wimby תופיע כאפליקציה רגילה.',
+      ];
+    } else if (isAndroid) {
+      intro = isSamsung
+        ? 'כדי להצמיד את Wimby למסך הבית ב-Samsung Internet:'
+        : 'כדי להתקין את Wimby כאפליקציה באנדרואיד (Chrome):';
+      steps = isSamsung
+        ? [
+            'לחץ על תפריט הקווים (☰) בתחתית המסך.',
+            'בחר "הוסף עמוד אל" ← "מסך הבית" (Add page to → Home screen).',
+            'אשר "הוסף" – ו-Wimby תופיע כאפליקציה במסך הבית.',
+          ]
+        : [
+            'לחץ על תפריט שלוש הנקודות (⋮) בפינה העליונה של Chrome.',
+            'בחר "התקן אפליקציה" או "הוסף למסך הבית" (Add to Home screen).',
+            'אשר "התקן / הוסף" – ו-Wimby תופיע כאפליקציה במסך הבית.',
+          ];
+    } else {
+      intro = 'כדי להתקין את Wimby כאפליקציה במחשב:';
+      steps = [
+        'לחץ על אייקון ההתקנה (מסך עם חץ) בצד שורת הכתובת של Chrome או Edge.',
+        'לחץ "התקן" (Install) כדי לפתוח את Wimby כחלון עצמאי.',
+      ];
+    }
+
+    el.installGuideIntro.textContent = intro;
+    el.installGuideSteps.innerHTML = steps.map((s) => `<li>${escapeHtml(s)}</li>`).join('');
+    el.installGuideModal.classList.remove('hidden');
+  }
+
+  function closeInstallGuideModal() {
+    el.installGuideModal.classList.add('hidden');
+  }
+
+  async function triggerAppInstall() {
+    if (isRunningStandalone()) {
+      showToast('Wimby כבר מותקנת כאפליקציה במכשיר');
+      return;
+    }
+    if (deferredInstallPrompt) {
+      deferredInstallPrompt.prompt();
+      const choice = await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      if (choice && choice.outcome === 'accepted') {
+        updateInstallUI();
+        return;
+      }
+    }
+    openInstallGuideModal();
+  }
+
+  function shareAppOnWhatsApp() {
+    const shareText = [
+      'גם לך האוטובוס שוב לא מגיע?!',
+      'ממליץ על *Wimby* – אפליקציה חינמית ו-100% פרטית (בלי הרשמה ובלי שרת):',
+      '• מתעדים המתנה בתחנה בקליק אחד',
+      '• מאמתים אוטומטית מול נתוני ה-GPS של OpenBus (דאטאבוס)',
+      '• מפיקים תלונה מוכנה לשליחה למשרד התחבורה ולמפעיל',
+      '',
+      'לכניסה (מומלץ להצמיד למסך הבית):',
+      'https://wimby-app.github.io/',
+    ].join('\n');
+
+    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
+    window.open(waUrl, '_blank', 'noopener,noreferrer');
+  }
+
   function registerServiceWorker() {
     if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
       navigator.serviceWorker.register('./sw.js').catch((err) => {
@@ -2624,6 +2874,7 @@
     renderRoutesBar();
     renderActionState();
     renderLogs();
+    updateInstallUI();
     updateLiveClock();
     setInterval(updateLiveClock, 15000);
     registerServiceWorker();

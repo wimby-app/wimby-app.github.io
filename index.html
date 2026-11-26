@@ -8,6 +8,13 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Wimby" />
   <meta name="description" content="Wimby – אפליקציה חינמית ופרטית לתיעוד זמני המתנה לתחבורה ציבורית והגשת תלונות למשרד התחבורה ולמפעילים" />
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="he_IL" />
+  <meta property="og:title" content="Wimby – איפה האוטובוס שלי?!" />
+  <meta property="og:description" content="אפליקציה חינמית ו-100% פרטית לתיעוד המתנה בתחנה, אימות מול OpenBus והגשת תלונות למשרד התחבורה ולמפעילים." />
+  <meta property="og:url" content="https://wimby-app.github.io/" />
+  <meta property="og:image" content="https://wimby-app.github.io/icon-512.png" />
+  <meta name="twitter:card" content="summary" />
   <title>Wimby • תיעוד המתנה לאוטובוס</title>
   <link rel="manifest" href="./manifest.json" />
   <link rel="icon" type="image/svg+xml" href="./icon.svg" />
@@ -31,6 +38,12 @@
       </div>
 
       <div class="header-actions">
+        <button id="headerShareBtn" type="button" class="icon-btn" aria-label="שתף את Wimby בוואטסאפ" title="שתף את Wimby בוואטסאפ">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+          </svg>
+        </button>
         <button id="openSettingsBtn" type="button" class="icon-btn" aria-label="הגדרות וגיבוי" title="הגדרות קווים וגיבוי">
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
@@ -44,10 +57,13 @@
     <nav id="routesBar" class="routes-bar" aria-label="קווים שמורים"></nav>
 
     <main class="main-stack">
-      <!-- PWA Install Banner (shown only when browser supports beforeinstallprompt) -->
+      <!-- PWA Install Banner (shown in browser until installed or dismissed) -->
       <div id="installBanner" class="install-banner hidden">
         <span><strong>טיפ:</strong> הצמד למסך הבית לגישה מהירה בתחנה ועבודה אופליין.</span>
-        <button id="installAppBtn" type="button" class="btn btn-primary" style="padding:7px 12px;font-size:0.76rem;flex-shrink:0;">התקן</button>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+          <button id="installAppBtn" type="button" class="btn btn-primary" style="padding:7px 12px;font-size:0.76rem;">התקן</button>
+          <button id="dismissInstallBannerBtn" type="button" aria-label="סגור טיפ התקנה" title="סגור" style="color:#4338ca;font-size:0.9rem;padding:4px 6px;border-radius:8px;">✕</button>
+        </div>
       </div>
 
       <!-- Main Timer Card -->
@@ -86,6 +102,16 @@
           <div class="timer-box">
             <div id="liveTimer" class="live-timer tabular ltr">00:00</div>
             <p id="timerSubtext" class="timer-sub">זמן המתנה נוכחי (דקות:שניות)</p>
+          </div>
+
+          <div class="full-bus-bar">
+            <button id="markFullBusBtn" type="button" class="full-bus-btn">
+              <span>+ עבר אוטובוס מלא / לא עצר</span>
+            </button>
+            <div id="activeFullBusesSummary" class="full-bus-summary hidden">
+              <span id="activeFullBusesText"></span>
+              <button id="undoFullBusBtn" type="button" class="full-bus-undo" aria-label="בטל סימון אחרון" title="בטל סימון אחרון">✕</button>
+            </div>
           </div>
 
           <div>
@@ -198,7 +224,11 @@
     </main>
 
     <footer class="app-footer">
+      <button id="footerInstallBtn" type="button" class="footer-link hidden">📲 התקן אפליקציה</button>
+      <span id="footerInstallSep" class="hidden" aria-hidden="true">•</span>
       <button id="openTourBtn" type="button" class="footer-link">איך זה עובד?</button>
+      <span aria-hidden="true">•</span>
+      <button id="footerShareBtn" type="button" class="footer-link">שתף בוואטסאפ</button>
       <span aria-hidden="true">•</span>
       <button id="openAboutBtn" type="button" class="footer-link">אודות, פרטיות והבהרה</button>
       <span aria-hidden="true">•</span>
@@ -306,6 +336,15 @@
           <button id="resetRouteFormBtn" type="button" class="btn btn-subtle hidden">נקה טופס</button>
         </div>
       </form>
+
+      <div id="settingsInstallBox">
+        <button id="settingsInstallBtn" type="button" class="btn btn-secondary hidden" style="width:100%;color:var(--primary);border-color:var(--primary-border);background:var(--primary-soft);">
+          📲 התקן את Wimby למסך הבית
+        </button>
+        <div id="settingsInstalledBadge" class="alert-box alert-emerald hidden" style="text-align:center;">
+          ✓ Wimby מותקנת כאפליקציה במכשיר
+        </div>
+      </div>
 
       <details class="details-box">
         <summary>גיבוי ושחזור נתונים (JSON) • שמירה על המידע</summary>
@@ -549,6 +588,22 @@
         <button id="tourSetupRouteBtn" type="button" class="btn btn-secondary hidden" style="flex:1;padding:12px 10px;">הגדר קו ראשון</button>
         <button id="tourNextBtn" type="button" class="btn btn-primary" style="flex:1;">הבא</button>
       </div>
+    </div>
+  </div>
+
+  <!-- PWA Install Guide Modal (fallback when browser doesn't fire beforeinstallprompt) -->
+  <div id="installGuideModal" class="modal-backdrop centered hidden" role="dialog" aria-modal="true" aria-labelledby="installGuideTitle">
+    <div class="modal-sheet" style="max-width:400px;border-radius:26px;">
+      <div class="modal-header">
+        <h3 id="installGuideTitle" class="modal-title">📲 התקנת Wimby למסך הבית</h3>
+        <button id="closeInstallGuideBtn" type="button" class="icon-btn" style="width:34px;height:34px;" aria-label="סגור">✕</button>
+      </div>
+      <div id="installGuideInAppWarn" class="alert-box alert-amber hidden">
+        נראה שפתחת את הקישור מתוך וואטסאפ או דפדפן פנימי – לחץ קודם על תפריט <strong>⋮</strong> (או אייקון הדפדפן) ובחר <strong>"פתח ב-Chrome / Safari"</strong>.
+      </div>
+      <p id="installGuideIntro" class="modal-sub" style="margin:0;"></p>
+      <ol id="installGuideSteps" style="margin:0;padding:0 20px 0 0;font-size:0.84rem;color:var(--text-secondary);line-height:1.65;display:flex;flex-direction:column;gap:6px;"></ol>
+      <button id="closeInstallGuideOkBtn" type="button" class="btn btn-primary" style="width:100%;">הבנתי, סגור</button>
     </div>
   </div>
 
