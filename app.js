@@ -1,12 +1,11 @@
 (function () {
   'use strict';
 
-  const APP_VERSION = '2.1';
+  const APP_VERSION = '2.2';
   const WHATS_NEW_ITEMS = [
-    'איתור מהיר של תחנה וקווים לפי מספר תחנה או תחנות קרובות (📍 אופציונלי).',
-    'אימות OpenBus מדויק יותר – בודק את שעות ההגעה המתוכננות לתחנה הספציפית שלך.',
-    'מסך המתנה נקי ואינטואיטיבי יותר ללא עומס כפתורים.',
-    'תיבה ברורה יותר למילוי אוטומטי של פרטים אישיים בטיוטת המייל (נשמר רק במכשיר).',
+    'חיווי והחלפת קו בזמן אמת מתוך כרטיס ההמתנה (או מהסרגל העליון) בלי לאפס את הטיימר.',
+    'תמיכה ב"קו חד-פעמי" במדידה חיה, בתיעוד ידני ובעריכה (כולל איתור תחנות מול OpenBus) בלי לזהם את הקווים הקבועים.',
+    'תיקון ועדכון כל קישורי התלונות למשרד התחבורה (gov.il) ולמפעילים, כולל מיילים ישירים למפעילים נוספים.',
   ];
 
   // ---------- Constants ----------
@@ -24,24 +23,42 @@
   };
 
   const MOT_EMAIL = 'pniotcrm@mot.gov.il';
-  const MOT_FORM_URL = 'https://www.gov.il/he/service/public-transportation-application';
+  const MOT_FORM_URL = 'https://www.gov.il/he/service/complaint_about_conduct_in_public_transportation';
   const OPENBUS_API_BASE = 'https://open-bus-stride-api.hasadna.org.il';
   const DATABUS_WEB_URL = 'https://open-bus-map-search.hasadna.org.il/';
 
   const OPERATOR_DIRECTORY = {
-    'סופרבוס': { operatorRefs: '16', formUrl: 'https://www.superbus.co.il/contact', phone: '*2289' },
-    'אגד': { operatorRefs: '3', email: 'pniot@egged.co.il', formUrl: 'https://www.egged.co.il/contact-us', phone: '*2800' },
-    'דן': { operatorRefs: '5,31,32', email: 'cs@dan.co.il', formUrl: 'https://www.dan.co.il/contact-us/', phone: '*3456' },
-    'קווים': { email: 'pniyot@kavim-t.co.il', formUrl: 'https://www.kavim-t.co.il/contact', phone: '*2060' },
-    'אקסטרה': { operatorRefs: '37,38', formUrl: 'https://extrapt.co.il/contact/', phone: '*6747' },
-    'מטרופולין': { operatorRefs: '15', formUrl: 'https://www.metropoline.com/Pages/ContactUs.aspx', phone: '*5900' },
-    'אלקטרה אפיקים': { operatorRefs: '25', formUrl: 'https://www.electra-afikim.co.il/contact/', phone: '*6686' },
-    'תנופה': { formUrl: 'https://www.tnufa-t.com/contact/', phone: '*8797' },
-    'נתיב אקספרס': { operatorRefs: '14', formUrl: 'https://www.nateevexpress.com/contact', phone: '*3553' },
-    'בית שמש אקספרס': { operatorRefs: '35', formUrl: 'https://www.bsexpress.co.il/contact', phone: '*3343' },
-    'רכבת ישראל': { formUrl: 'https://www.rail.co.il/pages/contactus.aspx', phone: '*5770' },
-    'כפיר (רכבת קלה)': { operatorRefs: '21', formUrl: 'https://www.cfir.co.il/contact-us/', phone: '*2779' },
+    'סופרבוס': { operatorRefs: '16', email: 'pniot@superbus.co.il', formUrl: 'https://superbus.co.il/inner.asp?page=contactForm', phone: '*2289' },
+    'אגד': { operatorRefs: '3', email: 'pniot@egged.co.il', formUrl: 'https://www.egged.co.il/information-for-passengers/contact-us', phone: '*2800' },
+    'דן': { operatorRefs: '5,31,32', email: 'cs@dan.co.il', formUrl: 'https://www.dan.co.il/pages/customer-service', phone: '*3456' },
+    'קווים': { email: 'pniyot@kavim-t.co.il', formUrl: 'https://www.kavim-t.com/', phone: '*2060' },
+    'אקסטרה': { operatorRefs: '37,38', email: 'service@extrapt.co.il', formUrl: 'https://extra-pt.co.il/contactus', phone: '*6747' },
+    'מטרופולין': { operatorRefs: '15', email: 'cs@metropoline.com', formUrl: 'https://www.metropoline.com/form/contactus', phone: '*5900' },
+    'אלקטרה אפיקים': { operatorRefs: '25', email: 'pniyot@afikim-t.co.il', formUrl: 'https://www.electra-afikim.co.il/%D7%9E%D7%99%D7%93%D7%A2-%D7%9C%D7%A0%D7%95%D7%A1%D7%A2/%D7%A4%D7%A0%D7%99%D7%95%D7%AA-%D7%94%D7%A6%D7%99%D7%91%D7%95%D7%A8/', phone: '*6686' },
+    'תנופה': { email: 'info@tnufa-t.com', formUrl: 'https://www.tnufa-t.com/PublicInquiries?inquiredId=2', phone: '*8797' },
+    'נתיב אקספרס': { operatorRefs: '14', formUrl: 'https://nateevexpress.com/contact/', phone: '*3553' },
+    'בית שמש אקספרס': { operatorRefs: '35', formUrl: 'https://nateevexpress.com/contact/', phone: '*3343' },
+    'כפיר (רכבת קלה)': { operatorRefs: '21', formUrl: 'https://cfir.co.il/', phone: '*2779' },
   };
+
+  function findOperatorInfo(opName) {
+    const clean = String(opName || '').trim();
+    if (!clean) return null;
+    if (OPERATOR_DIRECTORY[clean]) return OPERATOR_DIRECTORY[clean];
+    // Handle OpenBus agency variants (e.g. "אקסטרה ירושלים", "אגד תעבורה", "דרך אגד...", "דן בדרום", "כפיר")
+    if (clean.includes('אקסטרה')) return OPERATOR_DIRECTORY['אקסטרה'];
+    if (clean.includes('סופרבוס')) return OPERATOR_DIRECTORY['סופרבוס'];
+    if (clean.includes('אגד')) return OPERATOR_DIRECTORY['אגד'];
+    if (clean.includes('דן')) return OPERATOR_DIRECTORY['דן'];
+    if (clean.includes('קווים')) return OPERATOR_DIRECTORY['קווים'];
+    if (clean.includes('מטרופולין')) return OPERATOR_DIRECTORY['מטרופולין'];
+    if (clean.includes('אפיקים')) return OPERATOR_DIRECTORY['אלקטרה אפיקים'];
+    if (clean.includes('תנופה')) return OPERATOR_DIRECTORY['תנופה'];
+    if (clean.includes('בית שמש')) return OPERATOR_DIRECTORY['בית שמש אקספרס'];
+    if (clean.includes('נתיב אקספרס')) return OPERATOR_DIRECTORY['נתיב אקספרס'];
+    if (clean.includes('כפיר')) return OPERATOR_DIRECTORY['כפיר (רכבת קלה)'];
+    return null;
+  }
 
   const HEBREW_DAYS = ["יום א'", "יום ב'", "יום ג'", "יום ד'", "יום ה'", "יום ו'", "שבת"];
 
@@ -104,6 +121,8 @@
     startBtnRouteHint: document.getElementById('startBtnRouteHint'),
 
     waitStartTimeText: document.getElementById('waitStartTimeText'),
+    activeWaitRouteSelect: document.getElementById('activeWaitRouteSelect'),
+    activeWaitNoRouteBtn: document.getElementById('activeWaitNoRouteBtn'),
     liveTimer: document.getElementById('liveTimer'),
     timerSubtext: document.getElementById('timerSubtext'),
     activeNoteInput: document.getElementById('activeNoteInput'),
@@ -146,6 +165,8 @@
     routeLabel: document.getElementById('routeLabel'),
     routeStopName: document.getElementById('routeStopName'),
     routeDirection: document.getElementById('routeDirection'),
+    routeSavePermanentWrap: document.getElementById('routeSavePermanentWrap'),
+    routeSavePermanent: document.getElementById('routeSavePermanent'),
     saveRouteBtn: document.getElementById('saveRouteBtn'),
     resetRouteFormBtn: document.getElementById('resetRouteFormBtn'),
     backupJsonBtn: document.getElementById('backupJsonBtn'),
@@ -161,6 +182,17 @@
     editingLogId: document.getElementById('editingLogId'),
     manualDate: document.getElementById('manualDate'),
     manualRouteSelect: document.getElementById('manualRouteSelect'),
+    manualCustomRouteBox: document.getElementById('manualCustomRouteBox'),
+    manualLineRef: document.getElementById('manualLineRef'),
+    manualStopCode: document.getElementById('manualStopCode'),
+    manualLookupStopBtn: document.getElementById('manualLookupStopBtn'),
+    manualLookupStatus: document.getElementById('manualLookupStatus'),
+    manualStopLinesFilter: document.getElementById('manualStopLinesFilter'),
+    manualStopLinesList: document.getElementById('manualStopLinesList'),
+    manualLine: document.getElementById('manualLine'),
+    manualOperator: document.getElementById('manualOperator'),
+    manualStopName: document.getElementById('manualStopName'),
+    manualDirection: document.getElementById('manualDirection'),
     manualStartTime: document.getElementById('manualStartTime'),
     manualEndTime: document.getElementById('manualEndTime'),
     manualIssueType: document.getElementById('manualIssueType'),
@@ -546,6 +578,55 @@
     }
   }
 
+  function renderActiveWaitRouteUI() {
+    if (!activeSession) return;
+    const snap = activeSession.routeSnapshot;
+    const hasOneTimeLine = Boolean(snap && snap.line);
+
+    if (routes.length === 0 && !hasOneTimeLine) {
+      el.activeWaitRouteSelect.classList.add('hidden');
+      el.activeWaitNoRouteBtn.classList.remove('hidden');
+      return;
+    }
+
+    el.activeWaitNoRouteBtn.classList.add('hidden');
+    el.activeWaitRouteSelect.classList.remove('hidden');
+
+    const matchedRoute = snap
+      ? routes.find((r) => (snap.id && r.id === snap.id) || (!snap.isOneTime && r.line === snap.line && r.stopCode === snap.stopCode))
+      : null;
+
+    const options = [];
+    if (!matchedRoute) {
+      const label = hasOneTimeLine
+        ? `${formatRouteShort(snap)}${snap.isOneTime ? ' (חד-פעמי)' : ''}`
+        : 'ללא קו מוגדר';
+      options.push(`<option value="__none__">${escapeHtml(label)}</option>`);
+    }
+    routes.forEach((r) => {
+      options.push(`<option value="${escapeHtml(r.id)}">${escapeHtml(formatRouteShort(r))}</option>`);
+    });
+    options.push('<option value="__onetime__">⚡ קו חד-פעמי (ללא שמירה)...</option>');
+    options.push('<option value="__add__">+ הוסף קו חדש...</option>');
+
+    el.activeWaitRouteSelect.innerHTML = options.join('');
+    el.activeWaitRouteSelect.value = matchedRoute ? matchedRoute.id : '__none__';
+  }
+
+  function switchActiveSessionRoute(routeId, notify = true) {
+    const route = routes.find((r) => r.id === routeId);
+    if (!route) return;
+    activeRouteId = route.id;
+    saveRoutes();
+    if (activeSession) {
+      activeSession.routeSnapshot = { ...route };
+      saveActiveSession();
+      renderActiveWaitRouteUI();
+      if (notify) showToast(`המדידה עברה ל: ${formatRouteShort(route)}`);
+    }
+    renderRoutesBar();
+  }
+
   function renderActionState() {
     if (timerInterval) {
       clearInterval(timerInterval);
@@ -559,6 +640,7 @@
       const startDate = new Date(activeSession.startIso);
       el.waitStartTimeText.textContent = formatTimeHHMMSS(startDate);
       el.activeNoteInput.value = activeSession.note || '';
+      renderActiveWaitRouteUI();
       updateActiveTimerDisplay();
       timerInterval = setInterval(updateActiveTimerDisplay, 1000);
     } else {
@@ -864,16 +946,35 @@
     `).join('');
   }
 
+  function updateSaveRouteBtnLabel() {
+    const isEditing = Boolean(el.editingRouteId.value);
+    if (isEditing) {
+      el.routeSavePermanentWrap.classList.add('hidden');
+      el.saveRouteBtn.textContent = 'עדכן קו';
+      return;
+    }
+    el.routeSavePermanentWrap.classList.remove('hidden');
+    if (el.routeSavePermanent.checked) {
+      el.saveRouteBtn.textContent = 'הוסף ושמור קו';
+    } else if (activeSession) {
+      el.saveRouteBtn.textContent = 'הצמד למדידה הנוכחית (חד-פעמי)';
+    } else {
+      el.saveRouteBtn.textContent = 'התחל מדידה חד-פעמית';
+    }
+  }
+
   function resetRouteForm() {
     el.editingRouteId.value = '';
     el.routeLineRef.value = '';
     el.routeForm.reset();
-    el.saveRouteBtn.textContent = 'הוסף ושמור קו';
+    el.routeSavePermanent.checked = true;
     el.resetRouteFormBtn.classList.add('hidden');
+    updateSaveRouteBtnLabel();
     clearStopLookupUI();
   }
 
   let lastFoundStopLines = [];
+  let lastManualStopLines = [];
 
   function clearStopLookupUI() {
     lastFoundStopLines = [];
@@ -887,30 +988,40 @@
     el.stopLinesList.classList.add('hidden');
   }
 
-  function renderStopLinesList(filterQuery = '') {
+  function clearManualLookupUI() {
+    lastManualStopLines = [];
+    el.manualLookupStatus.textContent = '';
+    el.manualLookupStatus.classList.add('hidden');
+    el.manualStopLinesFilter.value = '';
+    el.manualStopLinesFilter.classList.add('hidden');
+    el.manualStopLinesList.innerHTML = '';
+    el.manualStopLinesList.classList.add('hidden');
+  }
+
+  function renderLinesPickerList(containerEl, linesList, filterQuery, attrPrefix) {
     const q = filterQuery.trim().toLowerCase();
     const filtered = q
-      ? lastFoundStopLines.filter(
+      ? linesList.filter(
           (item) =>
             item.line.toLowerCase().includes(q) ||
             item.operator.toLowerCase().includes(q) ||
             item.direction.toLowerCase().includes(q)
         )
-      : lastFoundStopLines;
+      : linesList;
 
     if (filtered.length === 0) {
-      el.stopLinesList.innerHTML = '<div class="lookup-status" style="padding:6px 4px;">לא נמצא קו תואם ברשימה – אפשר להקליד ידנית למטה.</div>';
+      containerEl.innerHTML = '<div class="lookup-status" style="padding:6px 4px;">לא נמצא קו תואם ברשימה – אפשר להקליד ידנית למטה.</div>';
       return;
     }
 
-    el.stopLinesList.innerHTML = filtered.map((item) => `
+    containerEl.innerHTML = filtered.map((item) => `
       <button
         type="button"
         class="lookup-item"
-        data-pick-line="${escapeHtml(item.line)}"
-        data-pick-operator="${escapeHtml(item.operator)}"
-        data-pick-direction="${escapeHtml(item.direction)}"
-        data-pick-lineref="${escapeHtml(String(item.lineRef || ''))}"
+        data-${attrPrefix}-line="${escapeHtml(item.line)}"
+        data-${attrPrefix}-operator="${escapeHtml(item.operator)}"
+        data-${attrPrefix}-direction="${escapeHtml(item.direction)}"
+        data-${attrPrefix}-lineref="${escapeHtml(String(item.lineRef || ''))}"
       >
         <span class="lookup-item-main">
           <strong>קו ${escapeHtml(item.line)} • ${escapeHtml(item.operator)}</strong>
@@ -919,6 +1030,14 @@
         <span class="badge badge-indigo">בחר</span>
       </button>
     `).join('');
+  }
+
+  function renderStopLinesList(filterQuery = '') {
+    renderLinesPickerList(el.stopLinesList, lastFoundStopLines, filterQuery, 'pick');
+  }
+
+  function renderManualStopLinesList(filterQuery = '') {
+    renderLinesPickerList(el.manualStopLinesList, lastManualStopLines, filterQuery, 'manual-pick');
   }
 
   function extractDirectionFromLongName(longName) {
@@ -948,6 +1067,69 @@
     return 2 * R * Math.asin(Math.sqrt(a));
   }
 
+  async function fetchStopAndLines(code) {
+    const refDate = getRecentWeekdayDateStr();
+
+    // Step 1: Resolve exact indexed gtfs_stop_id for refDate (fast, ~200ms)
+    const stopParams = new URLSearchParams({
+      limit: '1',
+      code,
+      date_from: refDate,
+      date_to: refDate,
+    });
+    const stopRes = await fetch(`${OPENBUS_API_BASE}/gtfs_stops/list?${stopParams.toString()}`);
+    if (!stopRes.ok) throw new Error('OpenBus stop lookup error');
+    const stopsData = await stopRes.json();
+
+    if (!Array.isArray(stopsData) || stopsData.length === 0) {
+      return null;
+    }
+
+    const stop = stopsData[0];
+    const fullStopName = [stop.name, stop.city].filter(Boolean).join(', ');
+
+    // Step 2: Query gtfs_ride_stops by indexed gtfs_stop_ids on a 3-hour afternoon peak window (fast & complete)
+    const fetchLinesInWindow = async (fromIso, toIso) => {
+      const ridesParams = new URLSearchParams({
+        limit: '500',
+        gtfs_stop_ids: String(stop.id),
+        arrival_time_from: fromIso,
+        arrival_time_to: toIso,
+      });
+      const ridesRes = await fetch(`${OPENBUS_API_BASE}/gtfs_ride_stops/list?${ridesParams.toString()}`);
+      if (!ridesRes.ok) throw new Error('OpenBus rides lookup error');
+      return ridesRes.json();
+    };
+
+    let ridesData = await fetchLinesInWindow(`${refDate}T13:00:00Z`, `${refDate}T16:30:00Z`);
+    if (!Array.isArray(ridesData) || ridesData.length === 0) {
+      // Fallback for morning/night-only stops
+      ridesData = await fetchLinesInWindow(`${refDate}T04:00:00Z`, `${refDate}T22:00:00Z`);
+    }
+
+    const lineMap = new Map();
+    (Array.isArray(ridesData) ? ridesData : []).forEach((row) => {
+      const lineNum = String(row.gtfs_route__route_short_name || '').trim();
+      const agency = String(row.gtfs_route__agency_name || '').trim();
+      const lineRef = row.gtfs_route__line_ref || '';
+      const direction = extractDirectionFromLongName(row.gtfs_route__route_long_name);
+      if (!lineNum) return;
+      const key = `${lineRef || lineNum}|${agency}|${direction}`;
+      if (!lineMap.has(key)) {
+        lineMap.set(key, { line: lineNum, operator: agency, direction, lineRef });
+      }
+    });
+
+    const lines = [...lineMap.values()].sort((a, b) => {
+      const na = parseInt(a.line, 10);
+      const nb = parseInt(b.line, 10);
+      if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) return na - nb;
+      return a.line.localeCompare(b.line, 'he');
+    });
+
+    return { stop, fullStopName, lines };
+  }
+
   async function lookupStopByCode(rawCode) {
     const code = String(rawCode || '').trim();
     if (!code) {
@@ -964,73 +1146,21 @@
     el.lookupStopBtn.disabled = true;
 
     try {
-      const refDate = getRecentWeekdayDateStr();
-
-      // Step 1: Resolve exact indexed gtfs_stop_id for refDate (fast, ~200ms)
-      const stopParams = new URLSearchParams({
-        limit: '1',
-        code,
-        date_from: refDate,
-        date_to: refDate,
-      });
-      const stopRes = await fetch(`${OPENBUS_API_BASE}/gtfs_stops/list?${stopParams.toString()}`);
-      if (!stopRes.ok) throw new Error('OpenBus stop lookup error');
-      const stopsData = await stopRes.json();
-
-      if (!Array.isArray(stopsData) || stopsData.length === 0) {
+      const result = await fetchStopAndLines(code);
+      if (!result) {
         el.stopLookupStatus.textContent = `לא נמצאה תחנה מספר ${code}. בדוק את המספר או הזן ידנית למטה.`;
         return;
       }
 
-      const stop = stopsData[0];
-      const fullStopName = [stop.name, stop.city].filter(Boolean).join(', ');
-      el.routeStopName.value = fullStopName;
-
-      // Step 2: Query gtfs_ride_stops by indexed gtfs_stop_ids on a 3-hour afternoon peak window (fast & complete)
-      const fetchLinesInWindow = async (fromIso, toIso) => {
-        const ridesParams = new URLSearchParams({
-          limit: '500',
-          gtfs_stop_ids: String(stop.id),
-          arrival_time_from: fromIso,
-          arrival_time_to: toIso,
-        });
-        const ridesRes = await fetch(`${OPENBUS_API_BASE}/gtfs_ride_stops/list?${ridesParams.toString()}`);
-        if (!ridesRes.ok) throw new Error('OpenBus rides lookup error');
-        return ridesRes.json();
-      };
-
-      let ridesData = await fetchLinesInWindow(`${refDate}T13:00:00Z`, `${refDate}T16:30:00Z`);
-      if (!Array.isArray(ridesData) || ridesData.length === 0) {
-        // Fallback for morning/night-only stops
-        ridesData = await fetchLinesInWindow(`${refDate}T04:00:00Z`, `${refDate}T22:00:00Z`);
-      }
-
-      const lineMap = new Map();
-      (Array.isArray(ridesData) ? ridesData : []).forEach((row) => {
-        const lineNum = String(row.gtfs_route__route_short_name || '').trim();
-        const agency = String(row.gtfs_route__agency_name || '').trim();
-        const lineRef = row.gtfs_route__line_ref || '';
-        const direction = extractDirectionFromLongName(row.gtfs_route__route_long_name);
-        if (!lineNum) return;
-        const key = `${lineRef || lineNum}|${agency}|${direction}`;
-        if (!lineMap.has(key)) {
-          lineMap.set(key, { line: lineNum, operator: agency, direction, lineRef });
-        }
-      });
-
-      lastFoundStopLines = [...lineMap.values()].sort((a, b) => {
-        const na = parseInt(a.line, 10);
-        const nb = parseInt(b.line, 10);
-        if (!Number.isNaN(na) && !Number.isNaN(nb) && na !== nb) return na - nb;
-        return a.line.localeCompare(b.line, 'he');
-      });
+      el.routeStopName.value = result.fullStopName;
+      lastFoundStopLines = result.lines;
 
       if (lastFoundStopLines.length === 0) {
-        el.stopLookupStatus.textContent = `נמצאה תחנה: ${fullStopName} (לא נמצאו קווים – ניתן להזין מספר קו ידנית למטה).`;
+        el.stopLookupStatus.textContent = `נמצאה תחנה: ${result.fullStopName} (לא נמצאו קווים – ניתן להזין מספר קו ידנית למטה).`;
         return;
       }
 
-      el.stopLookupStatus.textContent = `נמצאה תחנה: ${fullStopName} • נמצאו ${lastFoundStopLines.length} קווים (או הזן ידנית למטה):`;
+      el.stopLookupStatus.textContent = `נמצאה תחנה: ${result.fullStopName} • נמצאו ${lastFoundStopLines.length} קווים (או הזן ידנית למטה):`;
       if (lastFoundStopLines.length > 5) {
         el.stopLinesFilter.classList.remove('hidden');
       }
@@ -1041,6 +1171,50 @@
       el.stopLookupStatus.textContent = 'לא ניתן להתחבר כרגע ל-OpenBus (בדוק חיבור אינטרנט או הזן ידנית).';
     } finally {
       el.lookupStopBtn.disabled = false;
+    }
+  }
+
+  async function lookupManualStopByCode(rawCode) {
+    const code = String(rawCode || '').trim();
+    if (!code) {
+      showToast('נא להקליד מספר תחנה (למשל 1616)');
+      return;
+    }
+
+    el.manualLookupStatus.textContent = '⏳ מאתר תחנה וקווים ב-OpenBus...';
+    el.manualLookupStatus.classList.remove('hidden');
+    el.manualStopLinesFilter.value = '';
+    el.manualStopLinesFilter.classList.add('hidden');
+    el.manualStopLinesList.innerHTML = '';
+    el.manualStopLinesList.classList.add('hidden');
+    el.manualLookupStopBtn.disabled = true;
+
+    try {
+      const result = await fetchStopAndLines(code);
+      if (!result) {
+        el.manualLookupStatus.textContent = `לא נמצאה תחנה מספר ${code}. בדוק את המספר או הזן ידנית למטה.`;
+        return;
+      }
+
+      el.manualStopName.value = result.fullStopName;
+      lastManualStopLines = result.lines;
+
+      if (lastManualStopLines.length === 0) {
+        el.manualLookupStatus.textContent = `נמצאה תחנה: ${result.fullStopName} (לא נמצאו קווים – ניתן להזין מספר קו למטה).`;
+        return;
+      }
+
+      el.manualLookupStatus.textContent = `נמצאה תחנה: ${result.fullStopName} • בחר קו (${lastManualStopLines.length}):`;
+      if (lastManualStopLines.length > 5) {
+        el.manualStopLinesFilter.classList.remove('hidden');
+      }
+      renderManualStopLinesList('');
+      el.manualStopLinesList.classList.remove('hidden');
+    } catch (err) {
+      console.error('Manual stop lookup failed:', err);
+      el.manualLookupStatus.textContent = 'לא ניתן להתחבר כרגע ל-OpenBus (בדוק חיבור אינטרנט או הזן ידנית).';
+    } finally {
+      el.manualLookupStopBtn.disabled = false;
     }
   }
 
@@ -1129,10 +1303,13 @@
     }
   }
 
-  function openSettingsModal() {
+  function openSettingsModal(options = {}) {
+    const oneTimeMode = Boolean(options && options.oneTimeMode);
     el.minDelayInput.value = String(prefs.minDelayMinutes);
     renderSavedRoutesList();
     resetRouteForm();
+    el.routeSavePermanent.checked = !oneTimeMode;
+    updateSaveRouteBtnLabel();
     el.settingsModal.classList.remove('hidden');
   }
 
@@ -1155,15 +1332,53 @@
 
     if (!data.line || !data.operator) return;
 
+    if (!editId && !el.routeSavePermanent.checked) {
+      const oneTimeRoute = { id: null, ...data, isOneTime: true };
+      if (activeSession) {
+        activeSession.routeSnapshot = oneTimeRoute;
+        saveActiveSession();
+        renderActiveWaitRouteUI();
+        closeSettingsModal();
+        showToast(`הקו הוצמד למדידה הפעילה (חד-פעמי): ${formatRouteShort(oneTimeRoute)}`);
+      } else {
+        activeSession = {
+          startIso: new Date().toISOString(),
+          note: '',
+          issueType: '',
+          routeSnapshot: oneTimeRoute,
+        };
+        saveActiveSession();
+        renderActionState();
+        closeSettingsModal();
+        showToast(`המדידה התחילה (חד-פעמי): ${formatRouteShort(oneTimeRoute)}`);
+      }
+      resetRouteForm();
+      return;
+    }
+
     if (editId) {
       const idx = routes.findIndex((r) => r.id === editId);
-      if (idx !== -1) routes[idx] = { ...routes[idx], ...data };
+      if (idx !== -1) {
+        routes[idx] = { ...routes[idx], ...data };
+        if (activeSession && activeSession.routeSnapshot && activeSession.routeSnapshot.id === editId) {
+          activeSession.routeSnapshot = { ...routes[idx] };
+          saveActiveSession();
+          renderActiveWaitRouteUI();
+        }
+      }
       showToast('הקו עודכן');
     } else {
       const newRoute = { id: makeId('route'), ...data };
       routes.push(newRoute);
       activeRouteId = newRoute.id;
-      showToast('הקו נשמר והופעל');
+      if (activeSession) {
+        activeSession.routeSnapshot = { ...newRoute };
+        saveActiveSession();
+        renderActiveWaitRouteUI();
+        showToast(`הקו נשמר והוצמד למדידה הפעילה: ${formatRouteShort(newRoute)}`);
+      } else {
+        showToast('הקו נשמר והופעל');
+      }
     }
 
     saveRoutes();
@@ -1237,11 +1452,18 @@
   }
 
   // ---------- Manual / Edit Entry Modal ----------
+  function syncManualCustomRouteVisibility() {
+    const isCustom = el.manualRouteSelect.value === '__custom__';
+    el.manualCustomRouteBox.classList.toggle('hidden', !isCustom);
+  }
+
   function populateManualRouteSelect(selectedRouteIdOrEntry) {
-    const options = ['<option value="">ללא קו מוגדר</option>'];
+    const options = [];
     routes.forEach((r) => {
       options.push(`<option value="${escapeHtml(r.id)}">${escapeHtml(formatRouteShort(r))}</option>`);
     });
+    options.push('<option value="__custom__">⚡ קו חד-פעמי (אחר)</option>');
+    options.push('<option value="">ללא קו</option>');
     el.manualRouteSelect.innerHTML = options.join('');
 
     if (typeof selectedRouteIdOrEntry === 'string' && routes.some((r) => r.id === selectedRouteIdOrEntry)) {
@@ -1250,13 +1472,45 @@
       const match = routes.find(
         (r) => r.line === selectedRouteIdOrEntry.line && r.stopCode === selectedRouteIdOrEntry.stopCode
       );
-      if (match) el.manualRouteSelect.value = match.id;
+      if (match) {
+        el.manualRouteSelect.value = match.id;
+      } else if (
+        selectedRouteIdOrEntry.line ||
+        selectedRouteIdOrEntry.operator ||
+        selectedRouteIdOrEntry.stopCode ||
+        selectedRouteIdOrEntry.stopName
+      ) {
+        el.manualRouteSelect.value = '__custom__';
+        el.manualStopCode.value = selectedRouteIdOrEntry.stopCode || '';
+        el.manualLine.value = selectedRouteIdOrEntry.line || '';
+        el.manualOperator.value = selectedRouteIdOrEntry.operator || '';
+        el.manualStopName.value = selectedRouteIdOrEntry.stopName || '';
+        el.manualDirection.value = selectedRouteIdOrEntry.direction || '';
+        el.manualLineRef.value = selectedRouteIdOrEntry.lineRef ? String(selectedRouteIdOrEntry.lineRef) : '';
+      } else {
+        el.manualRouteSelect.value = '';
+      }
+    } else if (routes.length === 0) {
+      el.manualRouteSelect.value = '__custom__';
+    } else {
+      el.manualRouteSelect.value = activeRouteId && routes.some((r) => r.id === activeRouteId)
+        ? activeRouteId
+        : routes[0].id;
     }
+
+    syncManualCustomRouteVisibility();
   }
 
   function openManualModal(editLogId = null) {
     el.manualErrorMsg.classList.add('hidden');
     el.editingLogId.value = editLogId || '';
+    clearManualLookupUI();
+    el.manualStopCode.value = '';
+    el.manualLine.value = '';
+    el.manualOperator.value = '';
+    el.manualStopName.value = '';
+    el.manualDirection.value = '';
+    el.manualLineRef.value = '';
 
     if (editLogId) {
       const entry = logs.find((l) => l.id === editLogId);
@@ -1340,12 +1594,52 @@
       return;
     }
 
-    const chosenRoute = routes.find((r) => r.id === el.manualRouteSelect.value) || null;
+    const routeChoice = el.manualRouteSelect.value;
+    let routeFields = {
+      line: '',
+      operator: '',
+      stopCode: '',
+      stopName: '',
+      direction: '',
+      lineRef: null,
+    };
+
+    if (routeChoice === '__custom__') {
+      routeFields = {
+        line: el.manualLine.value.trim(),
+        operator: el.manualOperator.value.trim(),
+        stopCode: el.manualStopCode.value.trim(),
+        stopName: el.manualStopName.value.trim(),
+        direction: el.manualDirection.value.trim(),
+        lineRef: el.manualLineRef.value ? Number(el.manualLineRef.value) || null : null,
+      };
+      if (!routeFields.line && !routeFields.stopCode && !routeFields.operator) {
+        el.manualErrorMsg.textContent = 'נא למלא לפחות מספר קו או מספר תחנה עבור קו חד-פעמי (או בחר "ללא קו").';
+        el.manualErrorMsg.classList.remove('hidden');
+        return;
+      }
+    } else if (routeChoice) {
+      const chosenRoute = routes.find((r) => r.id === routeChoice);
+      if (chosenRoute) {
+        routeFields = {
+          line: chosenRoute.line || '',
+          operator: chosenRoute.operator || '',
+          stopCode: chosenRoute.stopCode || '',
+          stopName: chosenRoute.stopName || '',
+          direction: chosenRoute.direction || '',
+          lineRef: chosenRoute.lineRef || null,
+        };
+      }
+    }
 
     if (editId) {
       const idx = logs.findIndex((l) => l.id === editId);
       if (idx !== -1) {
         const prev = logs[idx];
+        const routeChanged =
+          prev.line !== routeFields.line ||
+          prev.stopCode !== routeFields.stopCode ||
+          (prev.lineRef || null) !== routeFields.lineRef;
         logs[idx] = {
           ...prev,
           startIso: startDate.toISOString(),
@@ -1355,12 +1649,8 @@
           status: statusVal,
           issueType: issueVal,
           note: noteVal,
-          line: chosenRoute ? chosenRoute.line : prev.line,
-          operator: chosenRoute ? chosenRoute.operator : prev.operator,
-          stopCode: chosenRoute ? chosenRoute.stopCode : prev.stopCode,
-          stopName: chosenRoute ? chosenRoute.stopName : prev.stopName,
-          direction: chosenRoute ? chosenRoute.direction : prev.direction,
-          lineRef: chosenRoute ? (chosenRoute.lineRef || null) : (prev.lineRef || null),
+          ...routeFields,
+          openBus: routeChanged ? null : prev.openBus,
         };
       }
       showToast('התיעוד עודכן בהצלחה');
@@ -1374,12 +1664,7 @@
         status: statusVal,
         issueType: issueVal,
         note: noteVal,
-        line: chosenRoute ? chosenRoute.line : '',
-        operator: chosenRoute ? chosenRoute.operator : '',
-        stopCode: chosenRoute ? chosenRoute.stopCode : '',
-        stopName: chosenRoute ? chosenRoute.stopName : '',
-        direction: chosenRoute ? chosenRoute.direction : '',
-        lineRef: chosenRoute ? (chosenRoute.lineRef || null) : null,
+        ...routeFields,
         reportedAt: null,
       });
       showToast('התיעוד הידני נוסף בהצלחה');
@@ -1574,7 +1859,7 @@
     const entries = getSelectedComplaintEntries();
     const target = getComplaintTarget();
     const op = getPrimaryOperatorForEntries(entries);
-    const opInfo = OPERATOR_DIRECTORY[op] || null;
+    const opInfo = findOperatorInfo(op);
 
     el.selectedLogsCount.textContent = String(entries.length);
     el.complaintOperatorLabel.textContent = op ? `חברת ${op}` : 'החברה המפעילה';
@@ -1696,7 +1981,7 @@
         lineFilterParams.set('gtfs_route__line_refs', String(entry.lineRef));
       } else {
         lineFilterParams.set('gtfs_route__route_short_name', entry.line.trim());
-        const opInfo = OPERATOR_DIRECTORY[entry.operator];
+        const opInfo = findOperatorInfo(entry.operator);
         if (opInfo && opInfo.operatorRefs) {
           lineFilterParams.set('gtfs_route__operator_refs', opInfo.operatorRefs);
         } else if (entry.operator) {
@@ -1882,15 +2167,32 @@
     el.routesBar.addEventListener('click', (e) => {
       const selectBtn = e.target.closest('[data-select-route]');
       if (selectBtn) {
-        activeRouteId = selectBtn.dataset.selectRoute;
-        saveRoutes();
-        renderRoutesBar();
+        switchActiveSessionRoute(selectBtn.dataset.selectRoute, true);
         return;
       }
       if (e.target.closest('[data-add-route]')) {
         openSettingsModal();
       }
     });
+
+    // Inline route switcher inside active waiting card
+    el.activeWaitRouteSelect.addEventListener('change', () => {
+      const val = el.activeWaitRouteSelect.value;
+      if (val === '__onetime__') {
+        renderActiveWaitRouteUI();
+        openSettingsModal({ oneTimeMode: true });
+        return;
+      }
+      if (val === '__add__') {
+        renderActiveWaitRouteUI();
+        openSettingsModal({ oneTimeMode: false });
+        return;
+      }
+      if (val && val !== '__none__') {
+        switchActiveSessionRoute(val, true);
+      }
+    });
+    el.activeWaitNoRouteBtn.addEventListener('click', () => openSettingsModal());
 
     // Main wait actions
     el.startWaitBtn.addEventListener('click', startWaiting);
@@ -1914,7 +2216,7 @@
     });
 
     // Settings Modal
-    el.openSettingsBtn.addEventListener('click', openSettingsModal);
+    el.openSettingsBtn.addEventListener('click', () => openSettingsModal());
     el.closeSettingsBtn.addEventListener('click', closeSettingsModal);
     el.settingsModal.addEventListener('click', (e) => {
       if (e.target === el.settingsModal) closeSettingsModal();
@@ -1928,6 +2230,7 @@
       if (activeSession) updateActiveTimerDisplay();
       showToast(clamped === 0 ? 'כל זמני ההמתנה יישמרו (ללא סף מינימום)' : `סף האיחור עודכן ל-${clamped} דקות`);
     });
+    el.routeSavePermanent.addEventListener('change', updateSaveRouteBtnLabel);
     el.routeForm.addEventListener('submit', handleRouteSubmit);
     el.resetRouteFormBtn.addEventListener('click', resetRouteForm);
     el.lookupStopBtn.addEventListener('click', () => lookupStopByCode(el.routeStopCode.value));
@@ -1974,7 +2277,7 @@
         el.routeLabel.value = r.label || '';
         el.routeStopName.value = r.stopName || '';
         el.routeDirection.value = r.direction || '';
-        el.saveRouteBtn.textContent = 'עדכן קו';
+        updateSaveRouteBtnLabel();
         el.resetRouteFormBtn.classList.remove('hidden');
         return;
       }
@@ -1986,6 +2289,7 @@
         saveRoutes();
         renderRoutesBar();
         renderSavedRoutesList();
+        if (activeSession) renderActiveWaitRouteUI();
         showToast('הקו הוסר');
       }
     });
@@ -2000,6 +2304,24 @@
     el.cancelManualBtn.addEventListener('click', closeManualModal);
     el.manualModal.addEventListener('click', (e) => {
       if (e.target === el.manualModal) closeManualModal();
+    });
+    el.manualRouteSelect.addEventListener('change', syncManualCustomRouteVisibility);
+    el.manualLookupStopBtn.addEventListener('click', () => lookupManualStopByCode(el.manualStopCode.value));
+    el.manualStopLinesFilter.addEventListener('input', () => renderManualStopLinesList(el.manualStopLinesFilter.value));
+    el.manualLine.addEventListener('input', () => {
+      el.manualLineRef.value = '';
+    });
+    el.manualStopLinesList.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-manual-pick-line]');
+      if (!btn) return;
+      el.manualLine.value = btn.dataset.manualPickLine || '';
+      el.manualOperator.value = btn.dataset.manualPickOperator || '';
+      el.manualDirection.value = btn.dataset.manualPickDirection || '';
+      el.manualLineRef.value = btn.dataset.manualPickLineref || '';
+      el.manualStopLinesList.classList.add('hidden');
+      el.manualStopLinesFilter.classList.add('hidden');
+      el.manualLookupStatus.textContent = `נבחר קו ${el.manualLine.value} (${el.manualOperator.value})`;
+      showToast(`פרטי קו ${el.manualLine.value} מולאו בתיעוד`);
     });
     el.manualForm.addEventListener('submit', handleManualSubmit);
 
@@ -2061,7 +2383,8 @@
       if (!entries.length) return;
       const target = getComplaintTarget();
       const op = getPrimaryOperatorForEntries(entries);
-      const to = target === 'mot' ? MOT_EMAIL : ((OPERATOR_DIRECTORY[op] && OPERATOR_DIRECTORY[op].email) || '');
+      const opInfo = findOperatorInfo(op);
+      const to = target === 'mot' ? MOT_EMAIL : ((opInfo && opInfo.email) || '');
       if (!to) return;
 
       const subject = buildComplaintSubject(entries);
@@ -2076,7 +2399,8 @@
       if (!entries.length) return;
       const target = getComplaintTarget();
       const op = getPrimaryOperatorForEntries(entries);
-      const to = target === 'mot' ? MOT_EMAIL : ((OPERATOR_DIRECTORY[op] && OPERATOR_DIRECTORY[op].email) || MOT_EMAIL);
+      const opInfo = findOperatorInfo(op);
+      const to = target === 'mot' ? MOT_EMAIL : ((opInfo && opInfo.email) || MOT_EMAIL);
       const subject = buildComplaintSubject(entries);
       const body = el.complaintPreview.value;
 

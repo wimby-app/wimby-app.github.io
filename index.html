@@ -74,10 +74,11 @@
         <div id="waitingView" class="waiting-view hidden">
           <div class="waiting-status-bar">
             <div class="pulse-wrap">
-              <span class="pulse-dot"></span>
-              <span>ממתין בתחנה</span>
+              <span class="pulse-dot" style="flex-shrink:0;"></span>
+              <select id="activeWaitRouteSelect" class="waiting-route-select hidden" aria-label="החלף קו למדידה הפעילה"></select>
+              <button id="activeWaitNoRouteBtn" type="button" class="mini-btn hidden" style="color:var(--primary);padding:2px 6px;">ממתין בתחנה • + הגדר קו</button>
             </div>
-            <div>
+            <div class="waiting-start-meta">
               התחלה: <strong id="waitStartTimeText" class="tabular ltr">--:--</strong>
             </div>
           </div>
@@ -275,7 +276,6 @@
               <option value="נתיב אקספרס"></option>
               <option value="בית שמש אקספרס"></option>
               <option value="כפיר (רכבת קלה)"></option>
-              <option value="רכבת ישראל"></option>
             </datalist>
           </div>
         </div>
@@ -295,6 +295,11 @@
           <label for="routeLabel" class="field-label">כינוי קצר (אופציונלי)</label>
           <input id="routeLabel" type="text" placeholder="למשל: הביתה / בוקר / עבודה" class="field-input" />
         </div>
+
+        <label id="routeSavePermanentWrap" style="display:flex;align-items:center;gap:8px;font-size:0.8rem;font-weight:600;color:var(--text-secondary);cursor:pointer;">
+          <input id="routeSavePermanent" type="checkbox" checked style="width:16px;height:16px;accent-color:var(--primary);" />
+          <span>שמור כקו קבוע בסרגל המועדפים</span>
+        </label>
 
         <div style="display:flex;gap:8px;">
           <button id="saveRouteBtn" type="submit" class="btn btn-primary" style="flex:1;">שמור קו</button>
@@ -337,6 +342,41 @@
           <div>
             <label for="manualRouteSelect" class="field-label">קו ותחנה</label>
             <select id="manualRouteSelect" class="field-select"></select>
+          </div>
+        </div>
+
+        <!-- One-time / Ad-hoc Route Fields (shown when manualRouteSelect === '__custom__') -->
+        <div id="manualCustomRouteBox" class="lookup-box hidden">
+          <input id="manualLineRef" type="hidden" />
+          <div>
+            <label for="manualStopCode" class="field-label" style="margin-bottom:4px;">פרטי קו חד-פעמי (נשמר רק על תיעוד זה)</label>
+            <div class="lookup-row">
+              <input id="manualStopCode" type="text" inputmode="numeric" placeholder="מספר תחנה (אופציונלי, למשל 1616)" class="field-input" style="flex:1;background:#fff;" />
+              <button id="manualLookupStopBtn" type="button" class="btn btn-primary" style="padding:9px 11px;font-size:0.76rem;flex-shrink:0;">🔍 אתר קווים</button>
+            </div>
+          </div>
+          <div id="manualLookupStatus" class="lookup-status hidden"></div>
+          <input id="manualStopLinesFilter" type="text" inputmode="text" placeholder="סנן לפי מספר קו או מפעיל..." class="field-input hidden" style="padding:7px 10px;font-size:0.78rem;background:#fff;" />
+          <div id="manualStopLinesList" class="lookup-list hidden"></div>
+          <div class="grid-2">
+            <div>
+              <label for="manualLine" class="field-label">מספר קו</label>
+              <input id="manualLine" type="text" placeholder="למשל: 480" class="field-input" style="background:#fff;" />
+            </div>
+            <div>
+              <label for="manualOperator" class="field-label">מפעיל</label>
+              <input id="manualOperator" type="text" list="operatorsDatalist" placeholder="בחר או הקלד" class="field-input" style="background:#fff;" />
+            </div>
+          </div>
+          <div class="grid-2">
+            <div>
+              <label for="manualStopName" class="field-label">תחנת מוצא / עיר</label>
+              <input id="manualStopName" type="text" placeholder="שם תחנה / עיר" class="field-input" style="background:#fff;" />
+            </div>
+            <div>
+              <label for="manualDirection" class="field-label">כיוון נסיעה</label>
+              <input id="manualDirection" type="text" placeholder="כיוון" class="field-input" style="background:#fff;" />
+            </div>
           </div>
         </div>
 
